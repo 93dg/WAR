@@ -3,22 +3,146 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>WAR · Aristóteles, filosofía para las noches</title>
 <style>
-:root{--fondo:#f6f0e2;--tinta:#1c2a44;--bronce:#9a6b2f}
-@media (prefers-color-scheme:dark){:root{--fondo:#121a2b;--tinta:#efe6d2;--bronce:#c99a52}}
-body{margin:0;background:var(--fondo);color:var(--tinta);font:18px/1.6 Georgia,serif;display:grid;min-height:100vh;place-items:center;padding:16px;box-sizing:border-box}
-main{max-width:34rem}
-h1{font-weight:normal;font-size:1.6rem;margin:0 0 .5rem}
+:root{--fondo:#f6f0e2;--papel:#fbf7ec;--tinta:#1c2a44;--suave:#5b6479;--bronce:#9a6b2f;--linea:#d9cfb8;--error:#a23b2a}
+@media (prefers-color-scheme:dark){:root{--fondo:#121a2b;--papel:#18223a;--tinta:#efe6d2;--suave:#a9b0c0;--bronce:#c99a52;--linea:#2c3856;--error:#e08a78}}
+*{box-sizing:border-box}
+::first-letter{text-transform:uppercase}
+body{margin:0;background:var(--fondo);color:var(--tinta);font:18px/1.6 Georgia,"Times New Roman",serif}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--linea)}
+header h1{font-size:1.05rem;font-weight:normal;margin:0}
+#version{color:var(--bronce);font-size:.85rem}
+main{max-width:44rem;margin:0 auto;padding:16px}
+h2{font-weight:normal;font-size:1.35rem;margin:.2rem 0 .6rem}
+h3{font-weight:normal;font-size:1.1rem;margin:1.2rem 0 .3rem;color:var(--bronce)}
 p{margin:.4rem 0}
-small{color:var(--bronce)}
+.suave{color:var(--suave);font-size:.9rem}
+label{display:block;margin:.8rem 0 .25rem;font-size:.95rem}
+input{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--linea);border-radius:8px;background:var(--papel);color:var(--tinta)}
+input:focus,button:focus-visible{outline:none;border-color:var(--bronce);box-shadow:0 0 0 1px var(--bronce)}
+button{font:inherit;padding:11px 16px;border:1px solid var(--linea);border-radius:8px;background:transparent;color:var(--tinta);cursor:pointer}
+button.principal{border-color:var(--bronce)}
+.fila{display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem}
+#aviso{margin-top:.8rem;color:var(--error);min-height:1.4em;font-size:.95rem}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+nav button.on{border-color:var(--bronce);box-shadow:0 0 0 1px var(--bronce)}
+.tarjeta{display:block;width:100%;text-align:left;margin:0 0 10px;padding:12px 14px;background:var(--papel)}
+.tarjeta b{font-weight:normal;font-size:1.05rem;display:block}
+.guion p{margin:.9rem 0}
+.pausa{color:var(--bronce);font-size:.8rem}
+.cifras{display:flex;gap:18px;flex-wrap:wrap;margin:.6rem 0 1rem}
+.cifras div{min-width:6rem}
+.cifras b{display:block;font-weight:normal;font-size:1.3rem}
+[hidden]{display:none !important}
 </style>
 </head>
 <body>
+<header><h1>Aristóteles, filosofía para las noches</h1><span id="version">V1.01</span></header>
 <main>
-<h1>Aristóteles, filosofía para las noches</h1>
-<p>Esta es la web de trabajo de la serie. Está en preparación.</p>
-<small id="version">V1.00</small>
+  <section id="acceso" hidden>
+    <h2>Acceso</h2>
+    <p class="suave">Esta web es privada. Entra con tu correo y tu contraseña.</p>
+    <form id="form">
+      <label for="correo">Correo</label>
+      <input id="correo" type="email" autocomplete="username" required>
+      <label for="clave">Contraseña</label>
+      <input id="clave" type="password" autocomplete="current-password" required>
+      <div class="fila"><button class="principal" type="submit">Entrar</button></div>
+    </form>
+    <div id="aviso" role="alert"></div>
+  </section>
+  <section id="app" hidden>
+    <nav id="menu"></nav>
+    <div id="vista"></div>
+    <div class="fila"><button id="salir" type="button">Salir</button></div>
+  </section>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(function(){
+var URL='https://qtnqupcfgooazjzkpmtx.supabase.co';
+var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0bnF1cGNmZ29vYXpqemtwbXR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3Njc5MTMsImV4cCI6MjEwNDM0MzkxM30.Hty-9YdAoscBBi4Ic3nCrY1aZEWU4pIkx3jMNNXhWOw';
+var $=function(id){return document.getElementById(id)};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var sb=null,D={},vista='episodios',sel=null;
+try{sb=window.supabase.createClient(URL,KEY)}catch(e){}
+
+function mostrarAcceso(msg){$('acceso').hidden=false;$('app').hidden=true;$('aviso').textContent=msg||''}
+function mostrarApp(){$('acceso').hidden=true;$('app').hidden=false}
+
+async function cargar(){
+  var r=await sb.from('war_docs').select('coleccion,id,datos');
+  if(r.error){mostrarAcceso('No se pudieron leer los datos: '+r.error.message);return}
+  D={};r.data.forEach(function(x){(D[x.coleccion]=D[x.coleccion]||[]).push(Object.assign({id:x.id},x.datos))});
+  mostrarApp();pintar();
+}
+
+function duracion(txt,cfg){
+  var wpm=(cfg&&cfg.wpm)||105,pp=(cfg&&cfg.pausaParrafo)||4,seg=0;
+  txt.replace(/\[pausa(?:\s+(\d+))?\]/g,function(m,n){seg+=n?+n:3;return ''});
+  var limpio=txt.replace(/\[pausa(?:\s+\d+)?\]/g,' ');
+  var palabras=(limpio.match(/\S+/g)||[]).length;
+  var parrafos=txt.split(/\n\s*\n/).length;
+  seg+=parrafos*pp;
+  return{palabras:palabras,min:palabras/wpm+seg/60};
+}
+
+function menu(){
+  var items=[['episodios','Episodios'],['obras','Obras'],['conceptos','Conceptos']];
+  $('menu').innerHTML=items.map(function(i){return '<button type="button" data-v="'+i[0]+'" class="'+(vista===i[0]?'on':'')+'">'+i[1]+'</button>'}).join('');
+}
+function ordenar(a,k){return (a||[]).slice().sort(function(x,y){return (x[k||'order']||0)-(y[k||'order']||0)})}
+function nombreObra(id){var o=(D.obras||[]).filter(function(x){return x.id===id})[0];return o?o.nombre:''}
+
+function pintar(){
+  menu();var h='';
+  if(vista==='episodios'){
+    if(sel){
+      var e=(D.episodios||[]).filter(function(x){return x.id===sel})[0];
+      if(!e){sel=null;return pintar()}
+      var cfg=(D.config||[])[0],d=duracion(e.script||'',cfg);
+      h+='<div class="fila" style="margin-top:0"><button type="button" data-volver="1">Volver a los episodios</button></div>';
+      h+='<h2>'+esc(e.titulo)+'</h2><p class="suave">'+esc(nombreObra(e.obraId))+' · '+esc(e.status||'')+'</p>';
+      h+='<div class="cifras"><div><b>'+d.min.toFixed(1).replace('.',',')+' min</b><span class="suave">Duración estimada</span></div><div><b>'+d.palabras+'</b><span class="suave">Palabras</span></div></div>';
+      h+='<h3>Idea</h3><p>'+esc(e.idea)+'</p><h3>Pregunta</h3><p>'+esc(e.pregunta)+'</p>';
+      h+='<h3>Guion</h3><div class="guion">'+(e.script||'').split(/\n\s*\n/).map(function(p){
+        return '<p>'+esc(p).replace(/\[pausa(?:\s+(\d+))?\]/g,function(m,n){return ' <span class="pausa">(pausa '+(n||3)+' s)</span>'})+'</p>'}).join('')+'</div>';
+      h+='<h3>Para practicar</h3><p>'+esc(e.practica)+'</p>';
+      h+='<h3>Frase final</h3><p>'+esc(e.fraseFinal)+'</p>';
+    }else{
+      h+='<h2>Episodios</h2>';
+      var eps=ordenar(D.episodios);
+      h+=eps.length?eps.map(function(e){var d=duracion(e.script||'',(D.config||[])[0]);return '<button type="button" class="tarjeta" data-ep="'+esc(e.id)+'"><b>'+esc(e.titulo)+'</b><span class="suave">'+esc(e.status||'')+' · '+d.min.toFixed(0)+' min</span></button>'}).join(''):'<p class="suave">Todavía no hay episodios.</p>';
+    }
+  }else if(vista==='obras'){
+    h+='<h2>Obras</h2>'+ordenar(D.obras).map(function(o){return '<div class="tarjeta"><b>'+esc(o.nombre)+'</b><span class="suave">'+esc(o.tema)+'. Entre '+o.estMin+' y '+o.estMax+' episodios.</span></div>'}).join('');
+  }else{
+    h+='<h2>Conceptos</h2>'+ordenar(D.conceptos,'nombre').map(function(c){return '<div class="tarjeta"><b>'+esc(c.nombre)+'</b><span class="suave">'+(c.obras||[]).map(nombreObra).join(', ')+'</span></div>'}).join('');
+  }
+  $('vista').innerHTML=h;
+}
+
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest('button');if(!t)return;
+  if(t.dataset.v){vista=t.dataset.v;sel=null;pintar()}
+  else if(t.dataset.ep){sel=t.dataset.ep;pintar();window.scrollTo(0,0)}
+  else if(t.dataset.volver){sel=null;pintar()}
+});
+$('salir').addEventListener('click',async function(){await sb.auth.signOut();D={};mostrarAcceso('')});
+$('form').addEventListener('submit',async function(ev){
+  ev.preventDefault();$('aviso').textContent='Entrando…';
+  var r=await sb.auth.signInWithPassword({email:$('correo').value.trim(),password:$('clave').value});
+  if(r.error){$('aviso').textContent='No se pudo entrar: '+(r.error.message==='Invalid login credentials'?'correo o contraseña incorrectos.':r.error.message);return}
+  $('clave').value='';cargar();
+});
+(async function(){
+  if(!sb){mostrarAcceso('No se pudo cargar la conexión. Recarga la página.');return}
+  var s=await sb.auth.getSession();
+  if(s.data&&s.data.session)cargar();else mostrarAcceso('');
+})();
+})();
+</script>
 </body>
 </html>
