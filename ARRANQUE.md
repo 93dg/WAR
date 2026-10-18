@@ -1,6 +1,6 @@
 # ARRANQUE — leer antes de hacer nada (cualquier chat, cualquier modelo)
 
-Subproyecto: **war** · Base: **Supabase qtnqupcfgooazjzkpmtx (DGP)** (tablas con prefijo `war_`) · Web: **GitHub 93dg/war**, publicada con GitHub Pages en **https://93dg.github.io/WAR/**
+Subproyecto: **war** · Base: **Supabase qtnqupcfgooazjzkpmtx (DGP)** (tablas con prefijo `war_`) · Web: **GitHub 93dg/WAR**, publicada con GitHub Pages en **https://93dg.github.io/WAR/**
 
 Cómo funcionamos: Claude trabaja con el conector de Supabase (datos y memoria del método) y con el repositorio de GitHub (la web). El chat no es memoria. Ver ARQUITECTURA.md.
 
