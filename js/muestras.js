@@ -113,7 +113,7 @@
     return '<h2>Muestras</h2><p class="mut">Sube audios o vídeos con la voz. La web extrae el audio, lo corta en frases limpias y lo guarda en tu espacio privado para preparar la voz de la serie.</p>' +
       '<div class="cifras"><div><b>' + dec(mins) + ' min</b><span class="mut peq">Voz guardada</span></div><div><b>' + n + '</b><span class="mut peq">Frases guardadas</span></div></div>' +
       '<div class="tarjeta"><label for="m-voz">Nombre de la voz</label><input id="m-voz" type="text" value="' + esc(localStorageGet('voz') || 'Voz de la serie') + '">' +
-      '<label for="m-arch">Audio o vídeo</label><input id="m-arch" type="file" accept="audio/*,video/*" multiple>' +
+      '<label for="m-arch">Audio o vídeo</label><input id="m-arch" type="file" multiple>' +
       '<div class="mut peq" id="m-est" style="margin-top:.7rem">Admite MP3, WAV, M4A, MP4 y similares. Cuanto más limpia la voz, mejor.</div></div>' +
       '<div id="m-editor"></div><h3>Frases guardadas</h3><div id="m-lista"></div>' +
       '<h3>Navegador</h3><div class="fila" style="margin-top:0"><button type="button" class="btn" data-v="voces">Voces y limpieza del navegador</button></div>';
