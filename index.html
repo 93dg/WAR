@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <title>WAR · Aristóteles, filosofía para las noches</title>
 <style>
-:root{color-scheme:dark;--bg:#0a0f1f;--card:#111a33;--card2:#16213f;--line:#243055;--tx:#ece7da;--mut:#98a1bb;--acc:#d6a864;--acc-soft:rgba(214,168,100,.14);--err:#ee8f7b;--serif:Georgia,"Times New Roman",serif;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+:root{color-scheme:dark;--bg:#0a0f1f;--card:#111a33;--card2:#16213f;--line:#243055;--tx:#ece7da;--mut:#98a1bb;--acc:#d6a864;--acc-soft:rgba(214,168,100,.14);--err:#ee8f7b;--ok:#7fc79a;--serif:Georgia,"Times New Roman",serif;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 ::first-letter{text-transform:uppercase}
 html{background:var(--bg)}
@@ -53,7 +53,7 @@ details.grupo>summary{list-style:none;cursor:pointer;display:flex;align-items:ce
 .fil-r{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);min-height:40px}
 .fil-r .t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fil-r .d{color:var(--mut);font-size:.85rem;white-space:nowrap}
-.fil-r .d.venc{color:var(--err)}
+.fil-r .d.venc{color:var(--err)}.fil-r .d.bien{color:var(--ok)}
 label.btn{cursor:pointer}
 .oculto{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .fil-c{margin:0}.fil-c label{margin:0 0 4px}
@@ -97,7 +97,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.21</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.22</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -211,15 +211,16 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/voces.js?v=1.21"></script>
-<script src="js/muestras.js?v=1.21"></script>
-<script src="js/ui.js?v=1.21"></script>
-<script src="js/libros_nucleo.js?v=1.21"></script>
-<script src="js/libros.js?v=1.21"></script>
-<script src="js/suno.js?v=1.21"></script>
-<script src="js/control.js?v=1.21"></script>
-<script src="js/sistema.js?v=1.21"></script>
-<script src="js/reportes.js?v=1.21"></script>
-<script src="js/asistente.js?v=1.21"></script>
+<script src="js/voces.js?v=1.22"></script>
+<script src="js/muestras.js?v=1.22"></script>
+<script src="js/ui.js?v=1.22"></script>
+<script src="js/libros_nucleo.js?v=1.22"></script>
+<script src="js/libros.js?v=1.22"></script>
+<script src="js/prompts.js?v=1.22"></script>
+<script src="js/suno.js?v=1.22"></script>
+<script src="js/control.js?v=1.22"></script>
+<script src="js/sistema.js?v=1.22"></script>
+<script src="js/reportes.js?v=1.22"></script>
+<script src="js/asistente.js?v=1.22"></script>
 </body>
 </html>

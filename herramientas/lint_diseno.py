@@ -8,7 +8,7 @@ Uso:  python3 herramientas/lint_diseno.py            (comprueba)
 import re, sys, json, os
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # AJUSTAR: ficheros del proyecto que se revisan
-FICHEROS = ['js/libros.js', 'js/libros_nucleo.js', 'js/suno.js', 'js/sistema.js', 'js/ui.js', 'index.html', 'js/voces.js', 'js/muestras.js', 'js/control.js','js/reportes.js','js/asistente.js']
+FICHEROS = ['js/prompts.js', 'js/libros.js', 'js/libros_nucleo.js', 'js/suno.js', 'js/sistema.js', 'js/ui.js', 'index.html', 'js/voces.js', 'js/muestras.js', 'js/control.js','js/reportes.js','js/asistente.js']
 BASE = os.path.join(RAIZ, 'herramientas', 'lint_baseline.json')
 FLECHAS = '▾▴▸◂▼▲►◄▶◀⌄⌃›‹'
 REGLAS = [

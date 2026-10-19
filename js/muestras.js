@@ -405,6 +405,7 @@
     muestras: function (el) {
       parar(); E.audio = null;
       el.innerHTML = cabecera(); pintarLista(); pintarPrueba();
+      if (window.WARPROMPTS) window.WARPROMPTS.montar(el);
       el.onclick = clic; el.onchange = cambio;
     },
     _medir: medir, _limpiar: limpiarRuido, _extraer: extraerVoz
