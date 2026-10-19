@@ -9,6 +9,8 @@
   function limpio(script) {
     return (script || '').replace(/\[pausa(?:\s+\d+)?\]/g, '').split(/\n\s*\n/).map(function (p) { return p.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
   }
+  /* Pronunciación de España: la c suave (ce, ci) y la z se escriben θ; si no, Suno las lee como s. */
+  function conTheta(t) { return t.replace(/c(?=[eiéíEIÉÍ])/g, 'θ').replace(/C(?=[eiéíEIÉÍ])/g, 'Θ').replace(/z/g, 'θ').replace(/Z/g, 'Θ'); }
   function partes(pars, max) {
     var r = [], cur = [], n = 0;
     pars.forEach(function (p) {
@@ -21,9 +23,11 @@
 
   function pintar() {
     if (!host || !actual) return;
-    var ps = partes(limpio(actual.script), MAX);
+    var th = U.get('episodio', 'theta', 'si') === 'si', pr = limpio(actual.script);
+    if (th) pr = pr.map(conTheta);
+    var ps = partes(pr, MAX);
     var total = ps.reduce(function (a, p) { return a + p.length; }, 0);
-    var P = window.WARPROMPTS, h = P ? P.html() : '';
+    var P = window.WARPROMPTS, h = U.filtro('episodio', 'theta', 'Pronunciación', [['si', 'Con θ'], ['no', 'Normal']], 'si') + (P ? P.html() : '');
     h += ps.map(function (p, i) {
       return '<details class="sub"><summary class="fil-r"><span class="t">' + esc(ps.length > 1 ? 'Parte ' + (i + 1) + ' de ' + ps.length : 'Texto completo') + '</span><span class="d">' + esc(miles(p.length) + ' car.') + '</span>' +
         U.accion('Copiar', 'data-suno="' + i + '"') + '</summary><div class="cuerpo">' + esc(p) + '</div></details>';
@@ -43,8 +47,10 @@
 
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b || !host || !host.contains(b)) return;
+    if (b.dataset.fil === 'episodio.theta') { ev.preventDefault(); ev.stopPropagation(); W._filAbierto = 'episodio.theta'; pintar(); return; }
+    if (b.dataset.filv === 'episodio.theta') { ev.preventDefault(); ev.stopPropagation(); W._filAbierto = null; U.set('episodio', 'theta', b.dataset.v2); pintar(); return; }
     if (b.dataset.suno != null) { ev.preventDefault(); ev.stopPropagation(); copiar(host.__partes[+b.dataset.suno], b); return; }
   }, true);
 
-  window.WARSUNO = { bloque: function (e, el) { actual = e; host = el; if (window.WARPROMPTS) { window.WARPROMPTS.reiniciar(); window.WARPROMPTS.alRepintar(pintar); } pintar(); } };
+  window.WARSUNO = { conTheta: conTheta, bloque: function (e, el) { actual = e; host = el; if (window.WARPROMPTS) { window.WARPROMPTS.reiniciar(); window.WARPROMPTS.alRepintar(pintar); } pintar(); } };
 })();
