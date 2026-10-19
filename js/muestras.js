@@ -81,13 +81,16 @@
     new Int16Array(b, 44).set(pcm);
     return new Blob([b], { type: 'audio/wav' });
   }
+  var PLAY = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  var PAUSA = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>';
+  function icono(attrs) { return '<button type="button" class="acc" aria-label="Escuchar" ' + attrs + '>' + PLAY + '</button>'; }
   /* Reproductor único: el mismo botón escucha y pausa. */
   function reproducir(url, btn, pie) {
     var parar = E.aud && E.btn === btn;
-    if (E.aud) { E.aud.pause(); if (E.btn) E.btn.textContent = E.txt; E.aud = null; E.btn = null; }
+    if (E.aud) { E.aud.pause(); if (E.btn) { E.btn.innerHTML = PLAY; E.btn.setAttribute('aria-label', 'Escuchar'); } E.aud = null; E.btn = null; }
     if (parar) return;
-    var a = new Audio(url); E.aud = a; E.btn = btn; E.txt = btn.dataset.txt || btn.textContent; btn.textContent = 'Parar';
-    var fin = function () { if (E.aud === a) { btn.textContent = E.txt; E.aud = null; E.btn = null; } };
+    var a = new Audio(url); E.aud = a; E.btn = btn; btn.innerHTML = PAUSA; btn.setAttribute('aria-label', 'Pausar');
+    var fin = function () { if (E.aud === a) { btn.innerHTML = PLAY; btn.setAttribute('aria-label', 'Escuchar'); E.aud = null; E.btn = null; } };
     a.onended = fin; a.onerror = fin; a.play().catch(fin);
   }
   function escuchar(blob, btn) {
@@ -198,7 +201,7 @@
     var g = guardadas(), U = window.WARUI;
     var filas = g.map(function (m) {
       return '<div class="fil-r" data-m="' + esc(m.id) + '"><span class="t">' + esc(m.nombre || m.id) + '</span><span class="d">' + mmss(m.dur || 0) + '</span>' +
-        U.accion('Escuchar', 'data-oir="' + esc(m.id) + '" data-txt="Escuchar"') + U.accion('Quitar', 'data-borrar="' + esc(m.id) + '"') + '</div>';
+        icono('data-oir="' + esc(m.id) + '"') + U.accion('Quitar', 'data-borrar="' + esc(m.id) + '"') + '</div>';
     }).join('');
     l.innerHTML = U.grupo('muestras', 'guardadas', 'Voces guardadas', dec(minutosGuardados()) + ' min', filas || '<div class="fil-r"><span class="t mut">Ninguna</span></div>', true);
   }
@@ -209,7 +212,7 @@
     ed.innerHTML = '<div class="tarjeta" style="padding:12px"><div class="fila-sp"><b class="no-cap t1">' + esc(E.nombre) + '</b></div>' +
       dato('Ruido de fondo', i.nivel.charAt(0).toUpperCase() + i.nivel.slice(1) + (i.limpiado ? ', limpiado' : ', sin cambios')) + dato('Duración', mmss(E.audio.length / SR)) +
       '<canvas id="m-onda" style="width:100%;height:64px;margin:.4rem 0;display:block"></canvas>' +
-      '<div class="fil-r" style="border:0;padding:0;min-height:0;gap:18px">' + U.accion('Escuchar', 'id="m-oir" data-txt="Escuchar"') + U.accion('Guardar voz', 'id="m-guardar"') + U.accion('Descartar', 'id="m-descartar"') + '</div></div>';
+      '<div class="fil-r" style="border:0;padding:0;min-height:0;gap:18px">' + icono('id="m-oir"') + U.accion('Guardar voz', 'id="m-guardar"') + U.accion('Descartar', 'id="m-descartar"') + '</div></div>';
     pintarOnda();
   }
   function setEst(t) { var e = $('#m-est'); if (e) e.textContent = t; }
