@@ -81,10 +81,18 @@
     new Int16Array(b, 44).set(pcm);
     return new Blob([b], { type: 'audio/wav' });
   }
-  function escuchar(blob) {
+  /* Reproductor único: el mismo botón escucha y pausa. */
+  function reproducir(url, btn, pie) {
+    var parar = E.aud && E.btn === btn;
+    if (E.aud) { E.aud.pause(); if (E.btn) E.btn.textContent = E.txt; E.aud = null; E.btn = null; }
+    if (parar) return;
+    var a = new Audio(url); E.aud = a; E.btn = btn; E.txt = btn.dataset.txt || btn.textContent; btn.textContent = 'Parar';
+    var fin = function () { if (E.aud === a) { btn.textContent = E.txt; E.aud = null; E.btn = null; } };
+    a.onended = fin; a.onerror = fin; a.play().catch(fin);
+  }
+  function escuchar(blob, btn) {
     if (E.urlPrev) URL.revokeObjectURL(E.urlPrev);
-    E.urlPrev = URL.createObjectURL(blob);
-    var a = new Audio(E.urlPrev); a.play().catch(function () {});
+    E.urlPrev = URL.createObjectURL(blob); reproducir(E.urlPrev, btn);
   }
 
   /* ---------- Ruido de fondo: medir y, si hace falta, limpiar ---------- */
@@ -134,7 +142,7 @@
           for (i = 0; i < N; i++) { re[i] = x[o2 + i] * win[i]; im[i] = 0; }
           fft(re, im, false);
           for (k = 0; k <= N / 2; k++) {
-            var m = Math.sqrt(re[k] * re[k] + im[k] * im[k]) + 1e-12, g = Math.max(0.1, 1 - 1.7 * ruido[k] / m);
+            var m = Math.sqrt(re[k] * re[k] + im[k] * im[k]) + 1e-12, g = Math.max(0.3, 1 - 1.1 * ruido[k] / m);
             g = 0.55 * g + 0.45 * ant[k]; ant[k] = g; re[k] *= g; im[k] *= g;
             if (k > 0 && k < N / 2) { re[N - k] = re[k]; im[N - k] = -im[k]; }
           }
@@ -147,19 +155,16 @@
     });
   }
 
-  /* ---------- Extraer la voz: se quitan los silencios y lo que no es voz ---------- */
+  /* La voz se deja entera, sin cortes: solo se quita el silencio del principio y del final. */
   function extraerVoz(x) {
-    var segs = detectar(x, 0.15, 0.5, 20);
-    if (!segs.length) return null;
-    var gap = Math.round(SR * 0.3), total = 0, i;
-    segs.forEach(function (s) { total += Math.floor((s.b - s.a) * SR) + gap; });
-    var out = new Float32Array(total), p = 0;
-    segs.forEach(function (s) {
-      var i0 = Math.floor(s.a * SR), i1 = Math.min(x.length, Math.floor(s.b * SR)), f = Math.round(SR * 0.012), n = i1 - i0;
-      for (i = 0; i < n; i++) { var k = x[i0 + i]; if (i < f) k *= i / f; else if (n - i < f) k *= (n - i) / f; out[p++] = k; }
-      p += gap;
-    });
-    return out.subarray(0, p);
+    var F = 480, n = Math.floor(x.length / F), r = [], i, j, mx = 0;
+    for (i = 0; i < n; i++) { var q = 0; for (j = 0; j < F; j++) q += x[i * F + j] * x[i * F + j]; r.push(Math.sqrt(q / F)); if (r[i] > mx) mx = r[i]; }
+    var u = mx * 0.06, a = 0, b = n - 1;
+    while (a < n && r[a] < u) a++;
+    while (b > a && r[b] < u) b--;
+    if (b <= a) return null;
+    var i0 = Math.max(0, (a - 12) * F), i1 = Math.min(x.length, (b + 13) * F);
+    return x.slice(i0, i1);
   }
 
   /* ---------- Onda ---------- */
@@ -193,7 +198,7 @@
     var g = guardadas(), U = window.WARUI;
     var filas = g.map(function (m) {
       return '<div class="fil-r" data-m="' + esc(m.id) + '"><span class="t">' + esc(m.nombre || m.id) + '</span><span class="d">' + mmss(m.dur || 0) + '</span>' +
-        U.accion('Escuchar', 'data-oir="' + esc(m.id) + '"') + U.accion('Quitar', 'data-borrar="' + esc(m.id) + '"') + '</div>';
+        U.accion('Escuchar', 'data-oir="' + esc(m.id) + '" data-txt="Escuchar"') + U.accion('Quitar', 'data-borrar="' + esc(m.id) + '"') + '</div>';
     }).join('');
     l.innerHTML = U.grupo('muestras', 'guardadas', 'Voces guardadas', dec(minutosGuardados()) + ' min', filas || '<div class="fil-r"><span class="t mut">Ninguna</span></div>', true);
   }
@@ -202,9 +207,9 @@
     if (!E.audio) { ed.innerHTML = ''; return; }
     var i = E.info, U = window.WARUI, dato = function (a, b) { return '<div class="fil-r" style="border:0;padding:4px 0;min-height:0"><span class="t mut">' + a + '</span><span class="d" style="color:var(--tx)">' + b + '</span></div>'; };
     ed.innerHTML = '<div class="tarjeta" style="padding:12px"><div class="fila-sp"><b class="no-cap t1">' + esc(E.nombre) + '</b></div>' +
-      dato('Ruido de fondo', i.nivel.charAt(0).toUpperCase() + i.nivel.slice(1) + (i.limpiado ? ', limpiado' : ', sin cambios')) + dato('Voz extraída', mmss(E.audio.length / SR) + ' de ' + mmss(i.total)) +
+      dato('Ruido de fondo', i.nivel.charAt(0).toUpperCase() + i.nivel.slice(1) + (i.limpiado ? ', limpiado' : ', sin cambios')) + dato('Duración', mmss(E.audio.length / SR)) +
       '<canvas id="m-onda" style="width:100%;height:64px;margin:.4rem 0;display:block"></canvas>' +
-      '<div class="fil-r" style="border:0;padding:0;min-height:0;gap:18px">' + U.accion('Escuchar', 'id="m-oir"') + U.accion('Guardar voz', 'id="m-guardar"') + U.accion('Descartar', 'id="m-descartar"') + '</div></div>';
+      '<div class="fil-r" style="border:0;padding:0;min-height:0;gap:18px">' + U.accion('Escuchar', 'id="m-oir" data-txt="Escuchar"') + U.accion('Guardar voz', 'id="m-guardar"') + U.accion('Descartar', 'id="m-descartar"') + '</div></div>';
     pintarOnda();
   }
   function setEst(t) { var e = $('#m-est'); if (e) e.textContent = t; }
@@ -218,7 +223,7 @@
       total = x.length / SR; var m = medir(x), hacer = m.nivel !== 'bajo';
       setEst('Ruido de fondo ' + m.nivel + (hacer ? ': limpiando…' : ': no hace falta limpiar'));
       return (hacer ? limpiarRuido(x, setEst) : Promise.resolve(x)).then(function (y) {
-        setEst('Extrayendo la voz…');
+        setEst('Preparando la voz…');
         return new Promise(function (r) { setTimeout(function () { r(extraerVoz(y)); }, 20); }).then(function (v) {
           if (!v) throw new Error('No se ha encontrado voz en este archivo');
           var g = ganancia(v), o = new Float32Array(v.length), i; for (i = 0; i < v.length; i++) o[i] = v[i] * g;
@@ -249,11 +254,11 @@
     })();
   }
 
-  function oirGuardada(id) {
+  function oirGuardada(id, btn) {
     var m = guardadas().filter(function (x) { return x.id === id; })[0]; if (!m) return;
     W.sb.storage.from(BUCKET).createSignedUrl(m.ruta, 600).then(function (r) {
       if (r.error) { setEst('No se pudo abrir: ' + r.error.message); return; }
-      var a = new Audio(r.data.signedUrl); a.play().catch(function () {});
+      reproducir(r.data.signedUrl, btn);
     });
   }
   function borrar(id) {
@@ -266,10 +271,10 @@
 
   function clic(ev) {
     var t = ev.target.closest('button'); if (!t) return;
-    if (t.id === 'm-oir') escuchar(wav(recorte(E.audio, 0, E.audio.length / SR, 1)));
+    if (t.id === 'm-oir') escuchar(wav(recorte(E.audio, 0, E.audio.length / SR, 1)), t);
     else if (t.id === 'm-guardar') guardarVoz();
-    else if (t.id === 'm-descartar') { E.audio = null; setEst('MP3, WAV, M4A o MP4'); pintarEditor(); }
-    else if (t.dataset.oir) oirGuardada(t.dataset.oir);
+    else if (t.id === 'm-descartar') { if (E.aud) { E.aud.pause(); E.aud = null; E.btn = null; } E.audio = null; setEst('MP3, WAV, M4A o MP4'); pintarEditor(); }
+    else if (t.dataset.oir) oirGuardada(t.dataset.oir, t);
     else if (t.dataset.borrar) borrar(t.dataset.borrar);
   }
   function cambio(ev) {
