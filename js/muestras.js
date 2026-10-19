@@ -294,7 +294,7 @@
   }
 
   /* ---------- Probar un texto con la voz (Pocket TTS en español, en el navegador, con el procesador) ---------- */
-  var P = { w: null, espera: {}, ref: null, chunks: [], ocupado: false };
+  var P = { w: null, espera: {}, ref: null, chunks: [], ocupado: false, base: null };
   function pEst(t) { var e = $('#m-pst'); if (e) e.textContent = t; }
   function pEsperar(tipo) { return new Promise(function (ok, ko) { P.espera[tipo] = { ok: ok, ko: ko }; }); }
   function pFallo(msg) { Object.keys(P.espera).forEach(function (k) { P.espera[k].ko(new Error(msg)); }); P.espera = {}; }
@@ -307,10 +307,24 @@
       if (m.type === 'status' && m.state === 'loading') pEst('Preparando el motor (solo la primera vez)…');
       else if (m.type === 'status' && m.state === 'running') pEst('Generando…');
       else if (m.type === 'error') pFallo(String(m.error || 'Error del motor de voz'));
-      else if (m.type === 'audio_chunk') P.chunks.push(m.data);
+      else if (m.type === 'voices_loaded') P.base = m.defaultVoice || (m.voices && m.voices[0]) || null;
+      if (m.type === 'audio_chunk') P.chunks.push(m.data);
       else if ((r = P.espera[m.type])) { delete P.espera[m.type]; r.ok(m); }
     };
     return w;
+  }
+  /* Trozo de 10 s con más voz seguida y menos ruido: es lo que el motor copia, defectos incluidos. */
+  function mejorVentana(x) {
+    var n = SR * 10; if (x.length <= n) return x.slice();
+    var F = 480, nf = Math.floor(x.length / F), r = new Float32Array(nf), i, j, mx = 0;
+    for (i = 0; i < nf; i++) { var q = 0; for (j = 0; j < F; j++) q += x[i * F + j] * x[i * F + j]; r[i] = Math.sqrt(q / F); if (r[i] > mx) mx = r[i]; }
+    var umbral = mx * 0.12, V = 500, paso = 50, mejor = 0, punt = -1;
+    for (var a = 0; a + V <= nf; a += paso) {
+      var act = 0; for (i = a; i < a + V; i++) if (r[i] > umbral) act++;
+      var p = act / V;
+      if (p > punt) { punt = p; mejor = a; }
+    }
+    return x.slice(mejor * F, mejor * F + n);
   }
   function pReferencia() {
     if (E.audio) return Promise.resolve({ clave: 'act:' + E.nombre + ':' + E.audio.length, pcm: E.audio });
@@ -329,13 +343,14 @@
     localStorageSet('texto', texto); P.ocupado = true; P.chunks = [];
     var w = pTrabajador(), listo = P.listo ? Promise.resolve() : (w.postMessage({ type: 'load' }), pEsperar('loaded').then(function () { P.listo = true; }));
     pEst('Preparando…');
-    listo.then(pReferencia).then(function (ref) {
-      if (ref.clave === P.ref) return;
-      var clip = ref.pcm.slice(0, SR * 10), v = pEsperar('voice_encoded');
+    var base = window.WARUI.get('muestras', 'voz', 'mia') === 'base';
+    listo.then(function () { return base ? { clave: P.ref } : pReferencia(); }).then(function (ref) {
+      if (base || ref.clave === P.ref) return;
+      var clip = mejorVentana(ref.pcm), v = pEsperar('voice_encoded');
       w.postMessage({ type: 'encode_voice', data: { audio: clip } }, [clip.buffer]);
       return v.then(function () { P.ref = ref.clave; });
     }).then(function () {
-      var fin = pEsperar('stream_ended'); w.postMessage({ type: 'generate', data: { text: texto, voice: 'custom' } });
+      var fin = pEsperar('stream_ended'); w.postMessage({ type: 'generate', data: { text: texto, voice: base ? (P.base || 'custom') : 'custom' } });
       return fin;
     }).then(function () {
       var n = P.chunks.reduce(function (t, c) { return t + c.length; }, 0), todo = new Float32Array(n), p = 0;
@@ -367,7 +382,7 @@
     if (eps.length) {
       var id = U.get('muestras', 'ep', eps[0].id), ep = eps.filter(function (e) { return e.id === id; })[0] || eps[0], mins = minutosDe(ep).map(function (x, i) { return [String(i + 1), String(i + 1)]; });
       filtros = '<div class="barra-f" style="padding:8px 12px 0;justify-content:flex-start;gap:8px">' + U.filtro('muestras', 'ep', 'Episodio', eps.map(function (e, i) { return [e.id, String(e.order || i + 1)]; }), eps[0].id) +
-        U.filtro('muestras', 'min', 'Minuto', mins, '1') + '</div>';
+        U.filtro('muestras', 'min', 'Minuto', mins, '1') + U.filtro('muestras', 'voz', 'Voz', [['mia', 'Mía'], ['base', 'Base']], 'mia') + '</div>';
     }
     var cuerpo = filtros + '<div class="fil-c" style="padding:8px 12px"><textarea id="m-txt" rows="3" style="width:100%;font-size:16px">' + esc(localStorageGet('texto') || textoElegido() || '') + '</textarea></div>' +
       '<div class="fil-r">' + icono('id="m-pt"') + '<span class="d mut" id="m-pst"></span></div>';
