@@ -61,6 +61,9 @@ label.btn{cursor:pointer}
 .seg.sel{border-color:var(--acc)}.seg input{margin-top:8px;padding:8px 12px}
 .t1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 details.sub>summary{list-style:none;cursor:pointer}details.sub>summary::-webkit-details-marker{display:none}
+.texto{padding:4px 14px 10px;border-top:1px solid var(--line);font-family:var(--serif);font-size:1.02rem;line-height:1.7}.texto p{margin:.7rem 0}
+mark.rot{background:rgba(250,204,21,.4);color:inherit;border-radius:3px;padding:0 1px}
+.fil-r .d.ac{color:var(--acc)}.nota{margin:0;padding:8px 14px 6px}
 .cuerpo{padding:8px 14px 12px;color:var(--mut);font-size:.92rem;white-space:pre-line;border-top:1px solid var(--line)}
 button.acc{border:0;background:transparent;padding:4px 2px;color:var(--acc);font-weight:700;border-radius:8px}
 details.grupo>summary::-webkit-details-marker{display:none}
@@ -94,7 +97,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.19</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.20</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -138,7 +141,7 @@ function mostrarAcceso(msg){$('acceso').hidden=false;$('app').hidden=true;$('men
 function mostrarApp(){$('acceso').hidden=true;$('app').hidden=false;$('menu').hidden=false}
 
 async function cargar(){
-  var r=await sb.from('war_docs').select('coleccion,id,datos');
+  var r=await sb.from('war_docs').select('coleccion,id,datos').neq('coleccion','textos');
   if(r.error){mostrarAcceso('No se pudieron leer los datos: '+r.error.message);return}
   D={};r.data.forEach(function(x){(D[x.coleccion]=D[x.coleccion]||[]).push(Object.assign({id:x.id},x.datos))});
   mostrarApp();pintar();
@@ -161,10 +164,10 @@ function vEpisodios(){
     h+='<div class="fila" style="margin-top:0"><button type="button" data-volver="1">Volver a los episodios</button></div>';
     h+='<h2 style="margin-top:1rem">'+esc(e.titulo)+'</h2><p class="mut">'+esc(nombreObra(e.obraId))+' · '+esc(e.status||'')+'</p>';
     h+='<div class="cifras"><div><b>'+d.min.toFixed(1).replace('.',',')+' min</b><span class="mut peq">Duración estimada</span></div><div><b>'+d.palabras+'</b><span class="mut peq">Palabras</span></div></div>';
-    h+='<h3>Idea</h3><p>'+esc(e.idea)+'</p><h3>Pregunta</h3><p>'+esc(e.pregunta)+'</p>';
+    h+='<div id="suno"></div><h3>Idea</h3><p>'+esc(e.idea)+'</p><h3>Pregunta</h3><p>'+esc(e.pregunta)+'</p>';
     h+='<h3>Guion</h3><div class="guion">'+(e.script||'').split(/\n\s*\n/).map(function(p){
       return '<p>'+esc(p).replace(/\[pausa(?:\s+(\d+))?\]/g,function(m,n){return ' <span class="pausa">pausa '+(n||3)+' s</span>'})+'</p>'}).join('')+'</div>';
-    h+='<h3>Para practicar</h3><p>'+esc(e.practica)+'</p>';
+    h+='<div id="origen"></div><h3>Para practicar</h3><p>'+esc(e.practica)+'</p>';
     h+='<h3>Frase final</h3><p>'+esc(e.fraseFinal)+'</p>';
   }else{
     h+='<h2>Episodios</h2>';
@@ -172,19 +175,15 @@ function vEpisodios(){
     h+=eps.length?eps.map(function(e){var d=duracion(e.script||'',(D.config||[])[0]);return '<button type="button" class="tarjeta" data-ep="'+esc(e.id)+'"><b>'+esc(e.titulo)+'</b><span class="mut peq">'+esc(e.status||'')+' · '+d.min.toFixed(0)+' min</span></button>'}).join(''):'<p class="mut">Todavía no hay episodios.</p>';
   }
   $('vista').innerHTML=h;
+  if(sel&&window.WARSUNO)window.WARSUNO.bloque((D.episodios||[]).filter(function(x){return x.id===sel})[0],$('suno'));
+  if(sel&&window.WARLIBROS)window.WARLIBROS.origen((D.episodios||[]).filter(function(x){return x.id===sel})[0],$('origen'));
 }
-function vBiblioteca(){
-  var h='<h2>Biblioteca</h2><h3>Obras</h3>'+ordenar(D.obras).map(function(o){return '<div class="tarjeta"><b>'+esc(o.nombre)+'</b><span class="mut peq">'+esc(o.tema)+'. Entre '+o.estMin+' y '+o.estMax+' episodios.</span></div>'}).join('');
-  h+='<h3>Conceptos</h3>'+ordenar(D.conceptos,'nombre').map(function(c){return '<div class="tarjeta"><b>'+esc(c.nombre)+'</b><span class="mut peq">'+(c.obras||[]).map(nombreObra).join(', ')+'</span></div>'}).join('');
-  $('vista').innerHTML=h;
-}
-
 function pintar(){
   menu();window.scrollTo(0,0);
   var el=$('vista');el.onclick=null;el.onchange=null;
   if(vista==='control'&&window.WARCONTROL){el.innerHTML='';window.WARCONTROL.control(el)}
   else if(vista==='episodios')vEpisodios();
-  else if(vista==='biblioteca')vBiblioteca();
+  else if(vista==='biblioteca'&&window.WARLIBROS){el.innerHTML='';window.WARLIBROS.biblioteca(el)}
   else if(vista==='sistema'&&window.WARSISTEMA){el.innerHTML='';window.WARSISTEMA.sistema(el)}
   else if(vista==='muestras'&&window.WARMUESTRAS){el.innerHTML='';window.WARMUESTRAS.muestras(el)}
   else if(window.WARVOCES&&window.WARVOCES[vista]){el.innerHTML='';window.WARVOCES[vista](el)}
@@ -212,12 +211,15 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/voces.js?v=1.19"></script>
-<script src="js/muestras.js?v=1.19"></script>
-<script src="js/ui.js?v=1.19"></script>
-<script src="js/control.js?v=1.19"></script>
-<script src="js/sistema.js?v=1.19"></script>
-<script src="js/reportes.js?v=1.19"></script>
-<script src="js/asistente.js?v=1.19"></script>
+<script src="js/voces.js?v=1.20"></script>
+<script src="js/muestras.js?v=1.20"></script>
+<script src="js/ui.js?v=1.20"></script>
+<script src="js/libros_nucleo.js?v=1.20"></script>
+<script src="js/libros.js?v=1.20"></script>
+<script src="js/suno.js?v=1.20"></script>
+<script src="js/control.js?v=1.20"></script>
+<script src="js/sistema.js?v=1.20"></script>
+<script src="js/reportes.js?v=1.20"></script>
+<script src="js/asistente.js?v=1.20"></script>
 </body>
 </html>

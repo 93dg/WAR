@@ -28,6 +28,7 @@
     var mins = minutosVoz();
     if (mins < META_MIN) a.push({ cat: 'Voz', txt: 'Reunir muestras: ' + dec(mins) + ' de ' + META_MIN + ' min' });
     if (!(D.libros || []).length) a.push({ cat: 'Libros', txt: 'Cargar el texto de los libros' });
+    else (D.episodios || []).slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); }).forEach(function (e, i) { if (e.script && !(e.fuentes || []).length) a.push({ cat: 'Libros', txt: 'Marcar el texto de origen del episodio ' + (i + 1) }); });
     return a;
   }
 
