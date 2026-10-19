@@ -2,15 +2,9 @@
 (function () {
   'use strict';
   var W = window.WAR;
-  var CATALOGO = [
-    { id: 'es_MX-claude-high', nombre: 'Claude', pais: 'México', cal: 'Alta' },
-    { id: 'es_ES-sharvard-medium', nombre: 'Sharvard', pais: 'España', cal: 'Media' },
-    { id: 'es_ES-davefx-medium', nombre: 'Davefx', pais: 'España', cal: 'Media' },
-    { id: 'es_MX-ald-medium', nombre: 'Ald', pais: 'México', cal: 'Media' },
-    { id: 'es_ES-mls_10246-low', nombre: 'MLS 10246', pais: 'España', cal: 'Baja' },
-    { id: 'es_ES-mls_9972-low', nombre: 'MLS 9972', pais: 'España', cal: 'Baja' },
-    { id: 'es_ES-carlfm-x_low', nombre: 'Carlfm', pais: 'España', cal: 'Muy baja' }
-  ];
+  // Las voces Piper se retiraron de la lista el 19/10/2026: el usuario las descartó por calidad.
+  // El motor y el narrador se conservan para conectar la voz propia cuando esté lista.
+  var CATALOGO = [];
   var MUESTRA = 'Buenas noches. Ponte cómodo. No tienes que hacer nada más que estar ahí, con la cabeza apoyada, y escuchar. Yo hablaré despacio. Si en algún momento te quedas dormido, no pasa nada. Las ideas que importan tienen paciencia.';
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var esc = W.esc;
@@ -176,7 +170,19 @@
       '<div class="fila"><button type="button" class="btn principal" data-probar="' + esc(c.id) + '">Probar esta voz</button></div>' +
       barra(c.id) + '<div id="a-' + esc(c.id) + '"></div></div>';
   }
+  function limpiarDescargas(est) {
+    var tareas = [];
+    try { if (navigator.storage && navigator.storage.getDirectory) tareas.push(navigator.storage.getDirectory().then(function (r) { return r.removeEntry('piper', { recursive: true }); }).catch(function () {})); } catch (e) {}
+    try { tareas.push(new Promise(function (res) { var q = indexedDB.deleteDatabase('war-voz'); q.onsuccess = q.onerror = q.onblocked = function () { res(); }; })); } catch (e) {}
+    return Promise.all(tareas).then(function () { if (worker) { worker.terminate(); worker = null; vozCargada = null; } if (est) est.textContent = 'Voces descargadas borradas de este navegador.'; });
+  }
   function vistaVoces(el) {
+    if (!CATALOGO.length) {
+      el.innerHTML = '<h2>Voces</h2><p class="mut">Todavía no hay ninguna voz. Aquí aparecerá la voz de la serie cuando esté preparada a partir de tus muestras.</p>' +
+        '<div class="tarjeta"><b>Limpiar el navegador</b><p class="mut peq">Borra las voces de prueba que se descargaron antes y los audios generados con ellas. Libera espacio.</p>' +
+        '<div class="fila"><button type="button" class="btn" id="limpiar">Borrar voces descargadas</button></div><div class="mut peq" id="limp-est" style="margin-top:.7rem"></div></div>';
+      return;
+    }
     el.innerHTML = '<h2>Voces</h2><p class="mut">Voces de IA que funcionan dentro de tu navegador, sin pagar por uso. La primera vez se descarga la voz y queda guardada; después se usa sin conexión.</p>' +
       '<div class="tarjeta"><label for="muestra">Texto de prueba</label><textarea id="muestra" rows="4">' + esc(MUESTRA) + '</textarea>' +
       '<div class="fila"><button type="button" class="btn" id="comparar">Comparar las favoritas</button></div><div class="mut peq" id="comp-est"></div></div>' +
@@ -198,6 +204,7 @@
   }
   function clickVoces(ev) {
     var t = ev.target.closest('button'); if (!t) return;
+    if (t.id === 'limpiar') { limpiarDescargas($('#limp-est')); return; }
     if (t.dataset.probar) { var m = $('#muestra'); probar(t.dataset.probar, (m && m.value.trim()) || MUESTRA); }
     else if (t.dataset.fav) {
       var id = t.dataset.fav, r = registro(id), nuevo = !(r && r.favorita);
@@ -227,6 +234,7 @@
   }
   function vistaNarrador(el) {
     var eps = (W.datos().episodios || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    if (!CATALOGO.length) { el.innerHTML = '<h2>Narrador</h2><p class="mut">El narrador se activará cuando haya una voz preparada. Primero reúne las muestras en la pestaña Muestras.</p>'; return; }
     if (!eps.length) { el.innerHTML = '<h2>Narrador</h2><p class="mut">Todavía no hay episodios con guion.</p>'; return; }
     el.innerHTML = '<h2>Narrador</h2><p class="mut">Convierte el guion en audio, párrafo a párrafo, respetando las pausas. Lo que ya se generó se guarda y no se repite.</p>' +
       '<div class="tarjeta"><label for="n-ep">Episodio</label><select id="n-ep">' + eps.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.titulo) + '</option>'; }).join('') + '</select>' +
