@@ -282,7 +282,6 @@
     ov.querySelector('#rm-file').addEventListener('change', archivos);
     var ta = ov.querySelector('#rm-txt');
     ta.addEventListener('input', crecer);
-    ta.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); enviar(false); } });
     ta.addEventListener('focus', function () { setTimeout(function () { ajustarVisor(); window.scrollTo(0, 0); }, 150); });
     ligarDibujo(ov.querySelector('.rm-stage'));
     if (window.visualViewport) { visualViewport.addEventListener('resize', ajustarVisor); visualViewport.addEventListener('scroll', ajustarVisor); }

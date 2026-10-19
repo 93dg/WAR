@@ -23,7 +23,7 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-c
 header h1{margin:0;font:600 .95rem/1.2 var(--sans);letter-spacing:.02em}
 header h1 span{color:var(--acc)}
 #version{color:var(--mut);font-size:.78rem}
-main{max-width:46rem;margin:0 auto;padding:20px 16px calc(96px + env(safe-area-inset-bottom))}
+main{max-width:46rem;margin:0 auto;padding:12px 14px calc(150px + env(safe-area-inset-bottom))}
 h2{font:600 1.55rem/1.2 var(--sans);letter-spacing:-.01em;margin:.2rem 0 .5rem}
 h3{font:600 .8rem/1.2 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin:1.5rem 0 .4rem}
 p{margin:.4rem 0;text-wrap:pretty}
@@ -36,7 +36,7 @@ textarea{resize:vertical;line-height:1.5}
 input:focus,select:focus,textarea:focus,button:focus-visible,a.btn:focus-visible{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
 .btn,button{font:500 .95rem var(--sans);color:var(--tx);padding:11px 18px;border:1px solid var(--line);border-radius:12px;background:transparent;cursor:pointer;text-decoration:none;display:inline-block}
 .btn.principal{border-color:var(--acc);color:var(--acc)}
-.chip{padding:7px 14px;border-radius:999px;font-size:.85rem;color:var(--mut)}
+.chip{padding:6px 14px;border-radius:999px;font-size:.85rem;color:var(--mut);white-space:nowrap}
 .chip.on,nav button.on{border-color:var(--acc);color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .fila{display:flex;gap:10px;flex-wrap:wrap;margin-top:1rem}
 .fila-sp{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -45,8 +45,16 @@ button.tarjeta{cursor:pointer;font:inherit}
 .tarjeta b{font-weight:600;font-size:1.02rem;display:block}
 .tarjeta .nota{margin-top:.8rem}
 .tarjeta.sel{border-color:var(--acc)}
-details.grupo{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--card2),var(--card));margin:0 0 10px;overflow:hidden}
-details.grupo>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;font-weight:600}
+details.grupo{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--card2),var(--card));margin:0 0 8px;overflow:hidden}
+details.grupo>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 14px;font-weight:600}
+.cif{margin-left:auto;color:var(--acc);font-weight:500}
+.fil{display:flex;gap:6px;flex-wrap:wrap}
+.barra-f{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
+.fil-r{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);min-height:40px}
+.fil-r .t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fil-r .d{color:var(--mut);font-size:.85rem;white-space:nowrap}
+.fil-r .d.venc{color:var(--err)}
+button.acc{border:0;background:transparent;padding:4px 2px;color:var(--acc);font-weight:700;border-radius:8px}
 details.grupo>summary::-webkit-details-marker{display:none}
 .num{display:inline-block;min-width:1.7rem;padding:1px 9px;border-radius:999px;border:1px solid var(--acc);color:var(--acc);font-size:.8rem;font-weight:500;text-align:center}
 .item{padding:12px 16px;border-top:1px solid var(--line)}
@@ -78,7 +86,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.09</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.10</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -195,10 +203,11 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/voces.js"></script>
-<script src="js/muestras.js"></script>
-<script src="js/control.js"></script>
-<script src="js/reportes.js"></script>
-<script src="js/asistente.js"></script>
+<script src="js/voces.js?v=1.10"></script>
+<script src="js/muestras.js?v=1.10"></script>
+<script src="js/ui.js?v=1.10"></script>
+<script src="js/control.js?v=1.10"></script>
+<script src="js/reportes.js?v=1.10"></script>
+<script src="js/asistente.js?v=1.10"></script>
 </body>
 </html>
