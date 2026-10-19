@@ -1,7 +1,7 @@
-/* WAR · Prompts de Suno: varios para probar, con estado (Probando, Me gusta, Descartado), copiar y editar. */
+/* WAR · Prompts de Suno: varios para probar, con estado (Probando, Me gusta, Descartado), copiar y editar. Viven dentro del texto para Suno del episodio. */
 (function () {
   'use strict';
-  var W = window.WAR, U = window.WARUI, esc = W.esc, S = 'prompts', host = null, edit = null, aviso = '';
+  var W = window.WAR, U = window.WARUI, esc = W.esc, edit = null, aviso = '', repintar = function () {};
   var ESTADOS = ['Probando', 'Me gusta', 'Descartado'];
 
   function lista() { return (W.datos().prompts || []).slice().sort(function (a, b) { return (a.creado || '') < (b.creado || '') ? -1 : 1; }); }
@@ -34,14 +34,12 @@
       '<div class="cuerpo">' + esc(p.texto) + (p.nota ? '\n\n' + esc(p.nota) : '') + '</div>' +
       '<div class="fil-r">' + U.accion('Editar', 'data-pr="editar" data-id="' + esc(p.id) + '"') + U.accion('Quitar', 'data-pr="quitar" data-id="' + esc(p.id) + '"') + '</div></details>';
   }
-  function pintar() {
-    if (!host) return;
+  /* Contenido de los prompts para el apartado Texto para Suno. */
+  function html() {
     var L = lista();
-    var cuerpo = edit ? formulario() : (L.map(filaPrompt).join('') || '<div class="fil-r"><span class="t mut">Ninguno</span></div>') + '<div class="fil-r">' + U.accion('Añadir', 'data-pr="nuevo"') + '</div>';
-    if (aviso) cuerpo += '<p class="mut peq nota">' + esc(aviso) + '</p>';
-    host.innerHTML = U.grupo('muestras', 'prompts', 'Prompts de Suno', L.length, cuerpo, true);
+    if (edit) return formulario() + (aviso ? '<p class="mut peq nota">' + esc(aviso) + '</p>' : '');
+    return L.map(filaPrompt).join('') + '<div class="fil-r">' + (L.length ? '' : '<span class="t mut">Sin prompts</span>') + U.accion('Añadir', 'data-pr="nuevo"') + '</div>' + (aviso ? '<p class="mut peq nota">' + esc(aviso) + '</p>' : '');
   }
-
   function copiar(txt, b) {
     function ok() { b.textContent = 'Copiado'; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fallback); else fallback();
@@ -52,7 +50,7 @@
   }
 
   document.addEventListener('click', function (ev) {
-    var b = ev.target.closest('button[data-pr]'); if (!b || !host || !host.contains(b)) return;
+    var b = ev.target.closest('button[data-pr]'); if (!b || !b.closest('#suno')) return;
     ev.preventDefault(); ev.stopPropagation(); aviso = '';
     var a = b.dataset.pr, p = b.dataset.id ? porId(b.dataset.id) : null;
     if (a === 'copiar' && p) { copiar(p.texto, b); return; }
@@ -62,24 +60,13 @@
     else if (a === 'guardar') {
       edit.nombre = document.getElementById('pr-n').value.trim() || edit.nombre; edit.texto = document.getElementById('pr-t').value.trim();
       edit.nota = document.getElementById('pr-o').value.trim(); edit.estado = document.getElementById('pr-e').value;
-      if (!edit.texto) { aviso = 'Escribe o pega el prompt.'; pintar(); return; }
+      if (!edit.texto) { aviso = 'Escribe o pega el prompt.'; repintar(); return; }
       var e = edit; edit = null;
-      guardar(e).then(pintar).catch(function (x) { edit = e; aviso = 'No se pudo guardar: ' + (x.message || x); pintar(); });
+      guardar(e).then(repintar).catch(function (x) { edit = e; aviso = 'No se pudo guardar: ' + (x.message || x); repintar(); });
       return;
-    } else if (a === 'quitar' && p) { quitar(p.id).then(pintar).catch(function (x) { aviso = 'No se pudo quitar: ' + (x.message || x); pintar(); }); return; }
-    pintar();
+    } else if (a === 'quitar' && p) { quitar(p.id).then(repintar).catch(function (x) { aviso = 'No se pudo quitar: ' + (x.message || x); repintar(); }); return; }
+    repintar();
   }, true);
 
-  /* Sección Muestras: se añade al final de la vista. */
-  function montar(el) { host = document.createElement('div'); host.id = 'prompts'; el.appendChild(host); edit = null; aviso = ''; pintar(); }
-
-  /* Ficha del episodio: el prompt elegido para copiar junto a las partes del texto. */
-  function elegido() {
-    var L = lista().filter(function (p) { return p.estado !== 'Descartado'; }); if (!L.length) return null;
-    var id = U.get('suno', 'prompt', ''), p = L.filter(function (x) { return x.id === id; })[0];
-    return p || L.filter(function (x) { return x.estado === 'Me gusta'; })[0] || L[0];
-  }
-  function opciones() { return lista().filter(function (p) { return p.estado !== 'Descartado'; }).map(function (p) { return [p.id, p.nombre]; }); }
-
-  window.WARPROMPTS = { montar: montar, elegido: elegido, opciones: opciones };
+  window.WARPROMPTS = { html: html, alRepintar: function (f) { repintar = f; }, reiniciar: function () { edit = null; aviso = ''; } };
 })();

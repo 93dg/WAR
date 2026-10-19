@@ -1,4 +1,4 @@
-/* WAR · Texto del episodio listo para copiar y pegar en Suno, en partes de hasta 5.000 caracteres. */
+/* WAR · Prompts y texto del episodio listos para copiar y pegar en Suno, en partes de hasta 5.000 caracteres. */
 (function () {
   'use strict';
   var W = window.WAR, U = window.WARUI, esc = W.esc, actual = null, host = null;
@@ -23,19 +23,13 @@
     if (!host || !actual) return;
     var ps = partes(limpio(actual.script), MAX);
     var total = ps.reduce(function (a, p) { return a + p.length; }, 0);
-    var h = '', P = window.WARPROMPTS, pr = P && P.elegido(), ops = P ? P.opciones() : [];
-    if (pr) {
-      h += (ops.length > 1 ? U.filtro('suno', 'prompt', 'Prompt', ops, pr.id) : '') +
-        '<div class="fil-r"><span class="t">' + esc(ops.length > 1 ? 'Prompt de estilo' : 'Prompt: ' + pr.nombre) + '</span><span class="d">' + esc(pr.estado) + '</span>' + U.accion('Copiar', 'data-suno="p"') + '</div>';
-    } else {
-      h += '<div class="fil-r"><span class="t mut">Sin prompt de estilo</span>' + U.accion('Añadir', 'data-v="muestras"') + '</div>';
-    }
+    var P = window.WARPROMPTS, h = P ? P.html() : '';
     h += ps.map(function (p, i) {
       return '<details class="sub"><summary class="fil-r"><span class="t">' + esc(ps.length > 1 ? 'Parte ' + (i + 1) + ' de ' + ps.length : 'Texto completo') + '</span><span class="d">' + esc(miles(p.length) + ' car.') + '</span>' +
         U.accion('Copiar', 'data-suno="' + i + '"') + '</summary><div class="cuerpo">' + esc(p) + '</div></details>';
     }).join('');
-    host.innerHTML = U.grupo('episodio', 'suno', 'Texto para Suno', miles(total) + ' car.', h, true);
-    host.__partes = ps; host.__prompt = pr ? pr.texto : '';
+    host.innerHTML = U.grupo('episodio', 'suno', 'Suno', miles(total) + ' car.', h, true);
+    host.__partes = ps;
   }
 
   function copiar(txt, b) {
@@ -49,10 +43,8 @@
 
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b || !host || !host.contains(b)) return;
-    if (b.dataset.suno != null) { ev.preventDefault(); ev.stopPropagation(); copiar(b.dataset.suno === 'p' ? host.__prompt : host.__partes[+b.dataset.suno], b); return; }
-    if (b.dataset.fil && b.dataset.fil.indexOf('suno.') === 0) { W._filAbierto = W._filAbierto === b.dataset.fil ? null : b.dataset.fil; pintar(); return; }
-    if (b.dataset.filv && b.dataset.filv.indexOf('suno.') === 0) { U.set('suno', 'prompt', b.dataset.v2); W._filAbierto = null; pintar(); }
+    if (b.dataset.suno != null) { ev.preventDefault(); ev.stopPropagation(); copiar(host.__partes[+b.dataset.suno], b); return; }
   }, true);
 
-  window.WARSUNO = { bloque: function (e, el) { actual = e; host = el; pintar(); } };
+  window.WARSUNO = { bloque: function (e, el) { actual = e; host = el; if (window.WARPROMPTS) { window.WARPROMPTS.reiniciar(); window.WARPROMPTS.alRepintar(pintar); } pintar(); } };
 })();
