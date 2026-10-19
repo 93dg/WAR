@@ -1,10 +1,10 @@
-/* WAR · Banco de muestras de voz: extrae el audio de archivos de audio o vídeo, lo corta en frases limpias y lo guarda en el espacio privado. */
+/* WAR · Muestras de voz: sube un audio o vídeo, la web mide el ruido de fondo, lo limpia si hace falta, extrae solo la voz y la guarda en el espacio privado. */
 (function () {
   'use strict';
   var W = window.WAR, esc = W.esc;
   var SR = 24000, BUCKET = 'war-muestras';
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var E = { audio: null, nombre: '', segs: [], sens: 0.15, hueco: 0.4, maxLen: 12, ocupado: false, urlPrev: null };
+  var E = { audio: null, nombre: '', info: null, ocupado: false, urlPrev: null };
 
   function mmss(seg) { seg = Math.round(seg); return Math.floor(seg / 60) + ':' + ('0' + (seg % 60)).slice(-2); }
   function dec(n) { return (Math.round(n * 10) / 10).toString().replace('.', ','); }
@@ -87,15 +87,88 @@
     var a = new Audio(E.urlPrev); a.play().catch(function () {});
   }
 
+  /* ---------- Ruido de fondo: medir y, si hace falta, limpiar ---------- */
+  function medir(x) {
+    var F = 480, n = Math.floor(x.length / F), r = new Float32Array(n), i, j;
+    for (i = 0; i < n; i++) { var q = 0, o = i * F; for (j = 0; j < F; j++) q += x[o + j] * x[o + j]; r[i] = Math.sqrt(q / F); }
+    var ord = Array.prototype.slice.call(r).sort(function (a, b) { return a - b; });
+    var ruido = Math.max(ord[Math.floor(n * 0.1)] || 0, 1e-5), voz = ord[Math.floor(n * 0.9)] || 0;
+    var snr = 20 * Math.log10(Math.max(voz, 1e-5) / ruido);
+    return { snr: snr, nivel: snr >= 28 ? 'bajo' : snr >= 18 ? 'medio' : 'alto' };
+  }
+  function fft(re, im, inv) {
+    var n = re.length, i, j = 0, k, t;
+    for (i = 1; i < n; i++) { var bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+    for (var len = 2; len <= n; len <<= 1) {
+      var ang = 2 * Math.PI / len * (inv ? 1 : -1), wr = Math.cos(ang), wi = Math.sin(ang);
+      for (i = 0; i < n; i += len) {
+        var cr = 1, ci = 0;
+        for (k = 0; k < len / 2; k++) {
+          var ur = re[i + k], ui = im[i + k], vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci, vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+          re[i + k] = ur + vr; im[i + k] = ui + vi; re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+          var nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+        }
+      }
+    }
+    if (inv) for (i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+  }
+  /* Sustracción espectral: aprende el ruido de los tramos más silenciosos y lo resta en cada ventana. */
+  function limpiarRuido(x, avisar) {
+    var N = 1024, H = 256, nf = Math.max(0, Math.floor((x.length - N) / H) + 1), win = new Float64Array(N), i, f, k;
+    if (nf < 8) return Promise.resolve(x);
+    for (i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+    var en = new Float32Array(nf);
+    for (f = 0; f < nf; f++) { var e = 0, o = f * H; for (i = 0; i < N; i += 4) e += x[o + i] * x[o + i]; en[f] = e; }
+    var idx = Array.prototype.slice.call(en.keys()).sort(function (a, b) { return en[a] - en[b]; }).slice(0, Math.max(8, Math.floor(nf * 0.1)));
+    var ruido = new Float64Array(N / 2 + 1), re = new Float64Array(N), im = new Float64Array(N);
+    idx.slice(0, 400).forEach(function (fr) {
+      for (i = 0; i < N; i++) { re[i] = x[fr * H + i] * win[i]; im[i] = 0; }
+      fft(re, im, false); for (k = 0; k <= N / 2; k++) ruido[k] += Math.sqrt(re[k] * re[k] + im[k] * im[k]) / Math.min(400, idx.length);
+    });
+    var y = new Float32Array(x.length), ant = new Float64Array(N / 2 + 1).fill(1), f0 = 0;
+    return new Promise(function (ok) {
+      (function trozo() {
+        var fin = Math.min(nf, f0 + 600);
+        for (f = f0; f < fin; f++) {
+          var o2 = f * H;
+          for (i = 0; i < N; i++) { re[i] = x[o2 + i] * win[i]; im[i] = 0; }
+          fft(re, im, false);
+          for (k = 0; k <= N / 2; k++) {
+            var m = Math.sqrt(re[k] * re[k] + im[k] * im[k]) + 1e-12, g = Math.max(0.1, 1 - 1.7 * ruido[k] / m);
+            g = 0.55 * g + 0.45 * ant[k]; ant[k] = g; re[k] *= g; im[k] *= g;
+            if (k > 0 && k < N / 2) { re[N - k] = re[k]; im[N - k] = -im[k]; }
+          }
+          fft(re, im, true);
+          for (i = 0; i < N; i++) y[o2 + i] += re[i] * win[i] / 1.5;
+        }
+        f0 = fin; avisar('Limpiando el ruido de fondo… ' + Math.round(f0 * 100 / nf) + ' %');
+        if (f0 < nf) setTimeout(trozo, 0); else ok(y);
+      })();
+    });
+  }
+
+  /* ---------- Extraer la voz: se quitan los silencios y lo que no es voz ---------- */
+  function extraerVoz(x) {
+    var segs = detectar(x, 0.15, 0.5, 20);
+    if (!segs.length) return null;
+    var gap = Math.round(SR * 0.3), total = 0, i;
+    segs.forEach(function (s) { total += Math.floor((s.b - s.a) * SR) + gap; });
+    var out = new Float32Array(total), p = 0;
+    segs.forEach(function (s) {
+      var i0 = Math.floor(s.a * SR), i1 = Math.min(x.length, Math.floor(s.b * SR)), f = Math.round(SR * 0.012), n = i1 - i0;
+      for (i = 0; i < n; i++) { var k = x[i0 + i]; if (i < f) k *= i / f; else if (n - i < f) k *= (n - i) / f; out[p++] = k; }
+      p += gap;
+    });
+    return out.subarray(0, p);
+  }
+
   /* ---------- Onda ---------- */
   function pintarOnda() {
     var c = $('#m-onda'); if (!c || !E.audio) return;
-    var w = c.clientWidth || 340, h = 84, d = window.devicePixelRatio || 1;
+    var w = c.clientWidth || 340, h = 64, d = window.devicePixelRatio || 1;
     c.width = w * d; c.height = h * d;
     var g = c.getContext('2d'); g.scale(d, d); g.clearRect(0, 0, w, h);
-    var x = E.audio, paso = Math.max(1, Math.floor(x.length / w)), i, j, tot = x.length / SR;
-    g.fillStyle = 'rgba(214,168,100,.18)';
-    E.segs.forEach(function (s) { if (s.ok) g.fillRect(s.a / tot * w, 0, (s.b - s.a) / tot * w, h); });
+    var x = E.audio, paso = Math.max(1, Math.floor(x.length / w)), i, j;
     g.fillStyle = '#98a1bb';
     for (i = 0; i < w; i++) {
       var mx = 0; for (j = 0; j < paso; j += 4) { var v = Math.abs(x[i * paso + j] || 0); if (v > mx) mx = v; }
@@ -106,129 +179,110 @@
   /* ---------- Datos guardados ---------- */
   function guardadas() { return (W.datos().muestras || []).slice().sort(function (a, b) { return (a.creada || 0) - (b.creada || 0); }); }
   function minutosGuardados() { return guardadas().reduce(function (t, m) { return t + (m.dur || 0); }, 0) / 60; }
-
-  /* ---------- Vista ---------- */
-  function cabecera() {
-    var mins = minutosGuardados(), n = guardadas().length;
-    return '<h2>Muestras</h2><p class="mut">Sube audios o vídeos con la voz. La web extrae el audio, lo corta en frases limpias y lo guarda en tu espacio privado para preparar la voz de la serie.</p>' +
-      '<div class="cifras"><div><b>' + dec(mins) + ' min</b><span class="mut peq">Voz guardada</span></div><div><b>' + n + '</b><span class="mut peq">Frases guardadas</span></div></div>' +
-      '<div class="tarjeta"><label for="m-voz">Nombre de la voz</label><input id="m-voz" type="text" value="' + esc(localStorageGet('voz') || 'Voz de la serie') + '">' +
-      '<label for="m-arch">Audio o vídeo</label><input id="m-arch" type="file" multiple>' +
-      '<div class="mut peq" id="m-est" style="margin-top:.7rem">Admite MP3, WAV, M4A, MP4 y similares. Cuanto más limpia la voz, mejor.</div></div>' +
-      '<div id="m-editor"></div><h3>Frases guardadas</h3><div id="m-lista"></div>' +
-      '<h3>Navegador</h3><div class="fila" style="margin-top:0"><button type="button" class="btn" data-v="voces">Voces y limpieza del navegador</button></div>';
-  }
   function localStorageGet(k) { try { return localStorage.getItem('war-' + k); } catch (e) { return null; } }
   function localStorageSet(k, v) { try { localStorage.setItem('war-' + k, v); } catch (e) {} }
 
+  /* ---------- Vista ---------- */
+  function cabecera() {
+    return '<div class="fil-c"><label for="m-voz">Voz</label><input id="m-voz" type="text" value="' + esc(localStorageGet('voz') || 'Voz de la serie') + '"></div>' +
+      '<div class="barra-f" style="margin-top:8px"><label class="btn" for="m-arch">Elegir archivo</label><input id="m-arch" class="oculto" type="file" multiple><span class="mut peq" id="m-est">MP3, WAV, M4A o MP4</span></div>' +
+      '<div id="m-editor"></div><div id="m-lista"></div>';
+  }
   function pintarLista() {
     var l = $('#m-lista'); if (!l) return;
-    var g = guardadas();
-    l.innerHTML = g.length ? g.map(function (m) {
-      return '<div class="tarjeta" data-m="' + esc(m.id) + '"><div class="fila-sp"><div><b>' + esc(m.nombre || m.id) + '</b><div class="mut peq">' + esc(m.voz || '') + ' · ' + dec(m.dur || 0) + ' s</div></div>' +
-        '<div class="fila" style="margin:0"><button type="button" class="btn" data-oir="' + esc(m.id) + '">Escuchar</button><button type="button" class="btn" data-borrar="' + esc(m.id) + '">Borrar</button></div></div>' +
-        (m.texto ? '<p class="mut peq" style="margin-bottom:0">' + esc(m.texto) + '</p>' : '') + '</div>';
-    }).join('') : '<p class="mut">Todavía no hay frases guardadas.</p>';
+    var g = guardadas(), U = window.WARUI;
+    var filas = g.map(function (m) {
+      return '<div class="fil-r" data-m="' + esc(m.id) + '"><span class="t">' + esc(m.nombre || m.id) + '</span><span class="d">' + mmss(m.dur || 0) + '</span>' +
+        U.accion('Escuchar', 'data-oir="' + esc(m.id) + '"') + U.accion('Quitar', 'data-borrar="' + esc(m.id) + '"') + '</div>';
+    }).join('');
+    l.innerHTML = U.grupo('muestras', 'guardadas', 'Voces guardadas', dec(minutosGuardados()) + ' min', filas || '<div class="fil-r"><span class="t mut">Ninguna</span></div>', true);
   }
-
   function pintarEditor() {
     var ed = $('#m-editor'); if (!ed) return;
     if (!E.audio) { ed.innerHTML = ''; return; }
-    var tot = E.audio.length / SR, sel = E.segs.filter(function (s) { return s.ok; }), dsel = sel.reduce(function (t, s) { return t + s.b - s.a; }, 0);
-    ed.innerHTML = '<div class="tarjeta"><b class="no-cap">' + esc(E.nombre) + '</b><div class="mut peq">Duración ' + mmss(tot) + ' · ' + E.segs.length + ' frases detectadas · ' + sel.length + ' elegidas (' + mmss(dsel) + ')</div>' +
-      '<canvas id="m-onda" style="width:100%;height:84px;margin-top:.8rem;display:block"></canvas>' +
-      '<label for="m-sens">Sensibilidad: más a la derecha corta más</label><input id="m-sens" type="range" min="5" max="45" value="' + Math.round(E.sens * 100) + '">' +
-      '<label for="m-max">Duración máxima de cada frase</label><select id="m-max"><option value="8">8 segundos</option><option value="12">12 segundos</option><option value="20">20 segundos</option></select>' +
-      '<div class="fila"><button type="button" class="btn principal" id="m-guardar">Guardar las elegidas</button><button type="button" class="btn" id="m-todas">Marcar o quitar todas</button></div></div>' +
-      E.segs.map(function (s, i) {
-        return '<div class="tarjeta' + (s.ok ? ' sel' : '') + '" data-s="' + i + '"><div class="fila-sp"><div><b>Frase ' + (i + 1) + '</b><div class="mut peq">' + mmss(s.a) + ' a ' + mmss(s.b) + ' · ' + dec(s.b - s.a) + ' s</div></div>' +
-          '<div class="fila" style="margin:0"><button type="button" class="chip' + (s.ok ? ' on' : '') + '" data-elegir="' + i + '" aria-pressed="' + s.ok + '">Elegida</button><button type="button" class="btn" data-esc="' + i + '">Escuchar</button></div></div>' +
-          '<input class="nota" type="text" placeholder="Qué dice (opcional)" value="' + esc(s.texto) + '" data-txt="' + i + '"></div>';
-      }).join('');
-    var mx = $('#m-max'); if (mx) mx.value = String(E.maxLen);
+    var i = E.info, U = window.WARUI, dato = function (a, b) { return '<div class="fil-r" style="border:0;padding:4px 0;min-height:0"><span class="t mut">' + a + '</span><span class="d" style="color:var(--tx)">' + b + '</span></div>'; };
+    ed.innerHTML = '<div class="tarjeta" style="padding:12px"><div class="fila-sp"><b class="no-cap t1">' + esc(E.nombre) + '</b></div>' +
+      dato('Ruido de fondo', i.nivel.charAt(0).toUpperCase() + i.nivel.slice(1) + (i.limpiado ? ', limpiado' : ', sin cambios')) + dato('Voz extraída', mmss(E.audio.length / SR) + ' de ' + mmss(i.total)) +
+      '<canvas id="m-onda" style="width:100%;height:64px;margin:.4rem 0;display:block"></canvas>' +
+      '<div class="fil-r" style="border:0;padding:0;min-height:0;gap:18px">' + U.accion('Escuchar', 'id="m-oir"') + U.accion('Guardar voz', 'id="m-guardar"') + U.accion('Descartar', 'id="m-descartar"') + '</div></div>';
     pintarOnda();
   }
-
   function setEst(t) { var e = $('#m-est'); if (e) e.textContent = t; }
 
-  function cargarArchivo(archivos, k) {
-    if (k >= archivos.length) return;
-    var a = archivos[k];
-    if (k > 0) { setEst('Solo se edita un archivo cada vez. Sube el siguiente cuando termines con este.'); return; }
+  function cargarArchivo(archivos) {
+    var a = archivos[0]; if (!a || E.ocupado) return;
+    if (archivos.length > 1) setEst('Se procesa un archivo cada vez');
     E.ocupado = true; E.audio = null; pintarEditor();
+    var total = 0;
     decodificar(a, setEst).then(function (x) {
-      E.audio = x; E.nombre = a.name; E.sens = 0.15; E.hueco = 0.4; E.maxLen = 12;
-      E.segs = detectar(x, E.sens, E.hueco, E.maxLen);
-      setEst(E.segs.length ? 'Listo. Revisa las frases, quita las que no valgan y guarda.' : 'No se detectaron frases. Prueba a subir la sensibilidad.');
-      E.ocupado = false; pintarEditor();
+      total = x.length / SR; var m = medir(x), hacer = m.nivel !== 'bajo';
+      setEst('Ruido de fondo ' + m.nivel + (hacer ? ': limpiando…' : ': no hace falta limpiar'));
+      return (hacer ? limpiarRuido(x, setEst) : Promise.resolve(x)).then(function (y) {
+        setEst('Extrayendo la voz…');
+        return new Promise(function (r) { setTimeout(function () { r(extraerVoz(y)); }, 20); }).then(function (v) {
+          if (!v) throw new Error('No se ha encontrado voz en este archivo');
+          var g = ganancia(v), o = new Float32Array(v.length), i; for (i = 0; i < v.length; i++) o[i] = v[i] * g;
+          E.audio = o; E.nombre = a.name; E.info = { nivel: m.nivel, snr: m.snr, limpiado: hacer, total: total };
+          setEst('Listo'); E.ocupado = false; pintarEditor();
+        });
+      });
     }).catch(function (e) { E.ocupado = false; setEst(e.message); });
   }
 
-  function redetectar() { E.segs = detectar(E.audio, E.sens, E.hueco, E.maxLen); pintarEditor(); }
-
-  function guardarElegidas() {
-    if (E.ocupado) return;
-    var voz = ($('#m-voz').value || '').trim() || 'Voz de la serie', sel = E.segs.filter(function (s) { return s.ok; });
-    if (!sel.length) { setEst('No hay frases elegidas.'); return; }
+  function guardarVoz() {
+    if (E.ocupado || !E.audio) return;
+    var voz = ($('#m-voz').value || '').trim() || 'Voz de la serie', parte = 15 * 60 * SR, partes = Math.ceil(E.audio.length / parte), base = Date.now(), k = 0;
     localStorageSet('voz', voz); E.ocupado = true;
-    var g = ganancia(E.audio), i = 0, base = Date.now();
     (function sig() {
-      if (i >= sel.length) { E.ocupado = false; setEst('Guardadas ' + sel.length + ' frases.'); E.audio = null; E.segs = []; pintarEditor(); pintarLista(); refrescarCifras(); return; }
-      var s = sel[i], id = 'm' + (base + i).toString(36), ruta = 'muestras/' + id + '.wav', pcm = recorte(E.audio, s.a, s.b, g);
-      setEst('Subiendo ' + (i + 1) + ' de ' + sel.length + '…');
+      if (k >= partes) { E.ocupado = false; setEst('Voz guardada'); E.audio = null; pintarEditor(); pintarLista(); return; }
+      var a = k * parte, b = Math.min(E.audio.length, a + parte), id = 'm' + (base + k).toString(36), ruta = 'muestras/' + id + '.wav';
+      var pcm = recorte(E.audio, a / SR, b / SR, 1);
+      setEst('Guardando' + (partes > 1 ? ' ' + (k + 1) + ' de ' + partes : '') + '…');
       W.sb.storage.from(BUCKET).upload(ruta, wav(pcm), { contentType: 'audio/wav', upsert: true }).then(function (r) {
         if (r.error) throw r.error;
-        var datos = { nombre: E.nombre.replace(/\.[^.]+$/, '') + ' · frase ' + (E.segs.indexOf(s) + 1), voz: voz, ruta: ruta, dur: pcm.length / SR, texto: s.texto || '', origen: E.nombre, creada: base + i };
+        var datos = { nombre: E.nombre.replace(/\.[^.]+$/, '') + (partes > 1 ? ' · parte ' + (k + 1) : ''), voz: voz, ruta: ruta, dur: pcm.length / SR, origen: E.nombre, limpiada: E.info.limpiado, ruido: E.info.nivel, creada: base + k };
         return W.sb.from('war_docs').upsert({ coleccion: 'muestras', id: id, datos: datos, actualizado: new Date().toISOString() }).then(function (q) {
           if (q.error) throw q.error;
           var D = W.datos(); D.muestras = D.muestras || []; D.muestras.push(Object.assign({ id: id }, datos));
         });
-      }).then(function () { i++; sig(); }).catch(function (e) { E.ocupado = false; setEst('No se pudo guardar: ' + (e.message || e)); });
+      }).then(function () { k++; sig(); }).catch(function (e) { E.ocupado = false; setEst('No se pudo guardar: ' + (e.message || e)); });
     })();
-  }
-
-  function refrescarCifras() {
-    var c = document.querySelector('.cifras'); if (!c) return;
-    c.innerHTML = '<div><b>' + dec(minutosGuardados()) + ' min</b><span class="mut peq">Voz guardada</span></div><div><b>' + guardadas().length + '</b><span class="mut peq">Frases guardadas</span></div>';
   }
 
   function oirGuardada(id) {
     var m = guardadas().filter(function (x) { return x.id === id; })[0]; if (!m) return;
     W.sb.storage.from(BUCKET).createSignedUrl(m.ruta, 600).then(function (r) {
-      if (r.error) { setEst('No se pudo abrir la muestra: ' + r.error.message); return; }
+      if (r.error) { setEst('No se pudo abrir: ' + r.error.message); return; }
       var a = new Audio(r.data.signedUrl); a.play().catch(function () {});
     });
   }
   function borrar(id) {
     var m = guardadas().filter(function (x) { return x.id === id; })[0]; if (!m) return;
     W.sb.storage.from(BUCKET).remove([m.ruta]).then(function () { return W.sb.from('war_docs').delete().eq('coleccion', 'muestras').eq('id', id); }).then(function (r) {
-      if (r && r.error) { setEst('No se pudo borrar: ' + r.error.message); return; }
-      var D = W.datos(); D.muestras = (D.muestras || []).filter(function (x) { return x.id !== id; }); pintarLista(); refrescarCifras();
+      if (r && r.error) { setEst('No se pudo quitar: ' + r.error.message); return; }
+      var D = W.datos(); D.muestras = (D.muestras || []).filter(function (x) { return x.id !== id; }); pintarLista();
     });
   }
 
   function clic(ev) {
     var t = ev.target.closest('button'); if (!t) return;
-    if (t.dataset.elegir != null) { var s = E.segs[+t.dataset.elegir]; s.ok = !s.ok; pintarEditor(); }
-    else if (t.dataset.esc != null) { var q = E.segs[+t.dataset.esc]; escuchar(wav(recorte(E.audio, q.a, q.b, ganancia(E.audio)))); }
-    else if (t.id === 'm-guardar') guardarElegidas();
-    else if (t.id === 'm-todas') { var todas = E.segs.every(function (z) { return z.ok; }); E.segs.forEach(function (z) { z.ok = !todas; }); pintarEditor(); }
+    if (t.id === 'm-oir') escuchar(wav(recorte(E.audio, 0, E.audio.length / SR, 1)));
+    else if (t.id === 'm-guardar') guardarVoz();
+    else if (t.id === 'm-descartar') { E.audio = null; setEst('MP3, WAV, M4A o MP4'); pintarEditor(); }
     else if (t.dataset.oir) oirGuardada(t.dataset.oir);
     else if (t.dataset.borrar) borrar(t.dataset.borrar);
   }
   function cambio(ev) {
     var t = ev.target;
-    if (t.id === 'm-arch') { if (t.files && t.files.length) cargarArchivo(t.files, 0); }
-    else if (t.id === 'm-sens') { E.sens = (+t.value) / 100; redetectar(); }
-    else if (t.id === 'm-max') { E.maxLen = +t.value; redetectar(); }
-    else if (t.dataset && t.dataset.txt != null) { E.segs[+t.dataset.txt].texto = t.value; }
+    if (t.id === 'm-arch') { if (t.files && t.files.length) cargarArchivo(t.files); t.value = ''; }
   }
 
   window.WARMUESTRAS = {
     muestras: function (el) {
-      E.audio = null; E.segs = [];
+      E.audio = null;
       el.innerHTML = cabecera(); pintarLista();
       el.onclick = clic; el.onchange = cambio;
-    }
+    },
+    _medir: medir, _limpiar: limpiarRuido, _extraer: extraerVoz
   };
 })();
