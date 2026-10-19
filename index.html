@@ -78,7 +78,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.05</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.06</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -94,7 +94,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
   </section>
   <section id="app" hidden>
     <div id="vista"></div>
-    <div class="fila"><button id="salir" type="button">Salir</button></div>
+    <div class="fila"><button id="reportes-ver" type="button">Reportes</button><button id="salir" type="button">Salir</button></div>
   </section>
 </main>
 <nav id="menu" hidden></nav>
@@ -180,6 +180,7 @@ document.addEventListener('click',function(ev){
   else if(t.dataset.ep){sel=t.dataset.ep;pintar()}
   else if(t.dataset.volver){sel=null;pintar()}
 });
+$('reportes-ver').addEventListener('click',function(){if(window.WARREP)window.WARREP.lista()});
 $('salir').addEventListener('click',async function(){await sb.auth.signOut();D={};mostrarAcceso('')});
 $('form').addEventListener('submit',async function(ev){
   ev.preventDefault();$('aviso').textContent='Entrando…';
@@ -198,5 +199,6 @@ document.addEventListener('DOMContentLoaded',async function(){
 <script src="js/voces.js"></script>
 <script src="js/muestras.js"></script>
 <script src="js/control.js"></script>
+<script src="js/reportes.js"></script>
 </body>
 </html>
