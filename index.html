@@ -45,6 +45,16 @@ button.tarjeta{cursor:pointer;font:inherit}
 .tarjeta b{font-weight:600;font-size:1.02rem;display:block}
 .tarjeta .nota{margin-top:.8rem}
 .tarjeta.sel{border-color:var(--acc)}
+details.grupo{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--card2),var(--card));margin:0 0 10px;overflow:hidden}
+details.grupo>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;font-weight:600}
+details.grupo>summary::-webkit-details-marker{display:none}
+.num{display:inline-block;min-width:1.7rem;padding:1px 9px;border-radius:999px;border:1px solid var(--acc);color:var(--acc);font-size:.8rem;font-weight:500;text-align:center}
+.item{padding:12px 16px;border-top:1px solid var(--line)}
+.venc{color:var(--err)}
+.etapas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.etapas div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--mut)}
+.etapas div.con{border-color:var(--acc);color:var(--tx)}
+.etapas b{font-weight:600}
 .tarjeta[data-s]:not(.sel){opacity:.6}
 input[type=range]{padding:0;border:0;background:transparent;accent-color:#d6a864}
 input[type=file]{padding:10px}
@@ -68,7 +78,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.04</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.05</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -95,7 +105,7 @@ var URL='https://qtnqupcfgooazjzkpmtx.supabase.co';
 var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0bnF1cGNmZ29vYXpqemtwbXR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3Njc5MTMsImV4cCI6MjEwNDM0MzkxM30.Hty-9YdAoscBBi4Ic3nCrY1aZEWU4pIkx3jMNNXhWOw';
 var $=function(id){return document.getElementById(id)};
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
-var sb=null,D={},vista='episodios',sel=null;
+var sb=null,D={},vista='control',sel=null;
 try{sb=window.supabase.createClient(URL,KEY)}catch(e){}
 
 function duracion(txt,cfg){
@@ -122,7 +132,7 @@ function ordenar(a,k){return (a||[]).slice().sort(function(x,y){return (x[k||'or
 function nombreObra(id){var o=(D.obras||[]).filter(function(x){return x.id===id})[0];return o?o.nombre:''}
 
 function menu(){
-  var items=[['episodios','Episodios'],['voces','Voces'],['muestras','Muestras'],['narrador','Narrador'],['biblioteca','Biblioteca']];
+  var items=[['control','Control'],['episodios','Episodios'],['muestras','Muestras'],['narrador','Narrador'],['biblioteca','Biblioteca']];
   $('menu').innerHTML=items.map(function(i){return '<button type="button" data-v="'+i[0]+'" class="'+(vista===i[0]?'on':'')+'">'+i[1]+'</button>'}).join('');
 }
 
@@ -156,7 +166,8 @@ function vBiblioteca(){
 function pintar(){
   menu();window.scrollTo(0,0);
   var el=$('vista');el.onclick=null;el.onchange=null;
-  if(vista==='episodios')vEpisodios();
+  if(vista==='control'&&window.WARCONTROL){el.innerHTML='';window.WARCONTROL.control(el)}
+  else if(vista==='episodios')vEpisodios();
   else if(vista==='biblioteca')vBiblioteca();
   else if(vista==='muestras'&&window.WARMUESTRAS){el.innerHTML='';window.WARMUESTRAS.muestras(el)}
   else if(window.WARVOCES&&window.WARVOCES[vista]){el.innerHTML='';window.WARVOCES[vista](el)}
@@ -176,14 +187,16 @@ $('form').addEventListener('submit',async function(ev){
   if(r.error){$('aviso').textContent='No se pudo entrar: '+(r.error.message==='Invalid login credentials'?'correo o contraseña incorrectos.':r.error.message);return}
   $('clave').value='';cargar();
 });
-(async function(){
+// Arranca cuando ya se han cargado también los módulos de js/ (así nunca se pinta antes de tiempo).
+document.addEventListener('DOMContentLoaded',async function(){
   if(!sb){mostrarAcceso('No se pudo cargar la conexión. Recarga la página.');return}
   var s=await sb.auth.getSession();
   if(s.data&&s.data.session)cargar();else mostrarAcceso('');
-})();
+});
 })();
 </script>
 <script src="js/voces.js"></script>
 <script src="js/muestras.js"></script>
+<script src="js/control.js"></script>
 </body>
 </html>

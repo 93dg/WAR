@@ -115,7 +115,8 @@
       '<div class="tarjeta"><label for="m-voz">Nombre de la voz</label><input id="m-voz" type="text" value="' + esc(localStorageGet('voz') || 'Voz de la serie') + '">' +
       '<label for="m-arch">Audio o vídeo</label><input id="m-arch" type="file" accept="audio/*,video/*" multiple>' +
       '<div class="mut peq" id="m-est" style="margin-top:.7rem">Admite MP3, WAV, M4A, MP4 y similares. Cuanto más limpia la voz, mejor.</div></div>' +
-      '<div id="m-editor"></div><h3>Frases guardadas</h3><div id="m-lista"></div>';
+      '<div id="m-editor"></div><h3>Frases guardadas</h3><div id="m-lista"></div>' +
+      '<h3>Navegador</h3><div class="fila" style="margin-top:0"><button type="button" class="btn" data-v="voces">Voces y limpieza del navegador</button></div>';
   }
   function localStorageGet(k) { try { return localStorage.getItem('war-' + k); } catch (e) { return null; } }
   function localStorageSet(k, v) { try { localStorage.setItem('war-' + k, v); } catch (e) {} }
