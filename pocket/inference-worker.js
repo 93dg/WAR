@@ -19,8 +19,8 @@ self.postMessage({ type: "status", status: "Worker Thread Started", state: "idle
 // ort is declared by the ONNX Runtime library when loaded via importScripts in loadOrt()
 
 const DEFAULT_LANGUAGE = "spanish";
-const LANGUAGE_BUNDLES = ["english_2026-04", "german", "italian", "portuguese", "spanish"];
-const MODEL_STEMS = {
+const LANGUAGE_BUNDLES = ["english_2026-04", "german", "italian", "portuguese", "spanish", "spanish_24l"];
+let MODEL_STEMS = {
     mimi_encoder: "mimi_encoder_int8.onnx",
     text_conditioner: "text_conditioner_int8.onnx",
     flow_lm_main: "flow_lm_main_int8.onnx",
@@ -73,8 +73,10 @@ let isReady = false;
 
 const HF_CDN_BASE = "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/main";
 
+const HF_MODEL_REPO = "https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve/main";
 function bundleDir(language) {
-    return `${HF_CDN_BASE}/onnx/${language}`;
+    const base = language.endsWith("_24l") ? HF_MODEL_REPO : HF_CDN_BASE;
+    return `${base}/onnx/${language}`;
 }
 
 function bundlePath(language, filename) {
@@ -634,6 +636,22 @@ async function releaseSession(session) {
     }
 }
 
+async function resolveStems(language) {
+    const out = {};
+    for (const [k, v] of Object.entries(MODEL_STEMS)) {
+        const base = v.replace("_int8", "");
+        let ok = false;
+        for (const name of [v, base]) {
+            try {
+                const r = await fetch(bundlePath(language, name), { method: "HEAD" });
+                if (r.ok) { out[k] = name; ok = true; break; }
+            } catch (e) { /* se prueba el siguiente nombre */ }
+        }
+        if (!ok) throw new Error(`No se encuentra el modelo ${base} en ${language}`);
+    }
+    MODEL_STEMS = out;
+}
+
 async function loadBundle(language, { initialLoad = false } = {}) {
     if (!LANGUAGE_BUNDLES.includes(language)) {
         throw new Error(`Unsupported language bundle: ${language}`);
@@ -650,6 +668,7 @@ async function loadBundle(language, { initialLoad = false } = {}) {
         throw new Error(`Failed to load bundle metadata for ${language}`);
     }
     bundleMetadata = await metadataResponse.json();
+    await resolveStems(language);
 
     currentSampleRate = Number(bundleMetadata.sample_rate);
     currentSamplesPerFrame = Number(bundleMetadata.samples_per_frame);
@@ -804,7 +823,7 @@ self.onmessage = async (e) => {
 
     try {
         if (type === "load") {
-            await loadBundle(DEFAULT_LANGUAGE, { initialLoad: true });
+            await loadBundle((data && data.language) || DEFAULT_LANGUAGE, { initialLoad: true });
             return;
         }
 

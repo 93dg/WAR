@@ -307,7 +307,7 @@
   function pFallo(msg) { Object.keys(P.espera).forEach(function (k) { P.espera[k].ko(new Error(msg)); }); P.espera = {}; }
   function pTrabajador() {
     if (P.w) return P.w;
-    var w = new Worker('pocket/inference-worker.js?v=1.14'); P.w = w;
+    var w = new Worker('pocket/inference-worker.js?v=1.18'); P.w = w;
     w.onerror = function (e) { pFallo('No se pudo iniciar el motor de voz'); P.w = null; };
     w.onmessage = function (ev) {
       var m = ev.data || {}, r;
@@ -348,7 +348,10 @@
     var texto = ($('#m-txt').value || '').trim();
     if (!texto) { pEst('Escribe un texto'); return; }
     localStorageSet('texto', texto); P.ocupado = true; P.chunks = []; pintarIcono('m-pt', true);
-    var w = pTrabajador(), listo = P.listo ? Promise.resolve() : (w.postMessage({ type: 'load' }), pEsperar('loaded').then(function () { P.listo = true; }));
+    var modelo = window.WARUI.get('muestras', 'modelo', 'spanish');
+    if (P.modelo && P.modelo !== modelo && P.w) { P.w.terminate(); P.w = null; P.listo = false; P.ref = null; P.base = null; }
+    P.modelo = modelo;
+    var w = pTrabajador(), listo = P.listo ? Promise.resolve() : (w.postMessage({ type: 'load', data: { language: modelo } }), pEsperar('loaded').then(function () { P.listo = true; }));
     pEst('Preparando…');
     var base = window.WARUI.get('muestras', 'voz', 'mia') === 'base';
     listo.then(function () { return base ? { clave: P.ref } : pReferencia(); }).then(function (ref) {
@@ -388,8 +391,9 @@
     var U = window.WARUI, eps = episodiosConGuion(), filtros = '';
     if (eps.length) {
       var id = U.get('muestras', 'ep', eps[0].id), ep = eps.filter(function (e) { return e.id === id; })[0] || eps[0], mins = minutosDe(ep).map(function (x, i) { return [String(i + 1), String(i + 1)]; });
-      filtros = '<div class="barra-f" style="padding:8px 12px 0;justify-content:flex-start;gap:8px">' + U.filtro('muestras', 'ep', 'Episodio', eps.map(function (e, i) { return [e.id, String(e.order || i + 1)]; }), eps[0].id) +
-        U.filtro('muestras', 'min', 'Minuto', mins, '1') + U.filtro('muestras', 'voz', 'Voz', [['mia', 'Mía'], ['base', 'Base']], 'mia') + '</div>';
+      filtros = '<div class="barra-f" style="padding:8px 12px 0;justify-content:flex-start;flex-wrap:wrap;gap:8px">' + U.filtro('muestras', 'ep', 'Episodio', eps.map(function (e, i) { return [e.id, String(e.order || i + 1)]; }), eps[0].id) +
+        U.filtro('muestras', 'min', 'Minuto', mins, '1') + U.filtro('muestras', 'voz', 'Voz', [['mia', 'Mía'], ['base', 'Base']], 'mia') +
+        U.filtro('muestras', 'modelo', 'Modelo', [['spanish', 'Pocket 6'], ['spanish_24l', 'Pocket 24']], 'spanish') + '</div>';
     }
     var cuerpo = filtros + '<div class="fil-c" style="padding:8px 12px"><textarea id="m-txt" rows="3" style="width:100%;font-size:16px">' + esc(localStorageGet('texto') || textoElegido() || '') + '</textarea></div>' +
       '<div class="fil-r">' + icono('id="m-pt"') + '<span class="d mut" id="m-pst"></span></div>';
