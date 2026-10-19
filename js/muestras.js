@@ -274,6 +274,12 @@
 
   function clic(ev) {
     var t = ev.target.closest('button'); if (!t) return;
+    if (t.dataset.fil) { W._filAbierto = W._filAbierto === t.dataset.fil ? null : t.dataset.fil; pintarPrueba(); return; }
+    if (t.dataset.filv) {
+      var k = t.dataset.filv.split('.')[1]; window.WARUI.set('muestras', k, t.dataset.v2); W._filAbierto = null;
+      if (k === 'ep') window.WARUI.set('muestras', 'min', '1');
+      elegirTexto(); pintarPrueba(); return;
+    }
     if (t.id === 'm-oir') escuchar(wav(recorte(E.audio, 0, E.audio.length / SR, 1)), t);
     else if (t.id === 'm-guardar') guardarVoz();
     else if (t.id === 'm-pt') probarTexto(t);
@@ -283,6 +289,7 @@
   }
   function cambio(ev) {
     var t = ev.target;
+    if (t.id === 'm-txt') localStorageSet('texto', t.value);
     if (t.id === 'm-arch') { if (t.files && t.files.length) cargarArchivo(t.files); t.value = ''; }
   }
 
@@ -339,12 +346,34 @@
       E.urlPrev = URL.createObjectURL(wav(recorte(todo, 0, n / SR, 1))); reproducir(E.urlPrev, btn);
     }).catch(function (e) { P.ocupado = false; pEst('Error: ' + (e.message || e)); });
   }
+  /* Guion de un episodio sin marcas de pausa, en trozos de un minuto (unos 900 caracteres), cortados por párrafo. */
+  function episodiosConGuion() {
+    return (W.datos().episodios || []).filter(function (e) { return (e.script || '').trim(); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  }
+  function minutosDe(ep) {
+    var pars = (ep.script || '').replace(/\[pausa[^\]]*\]/gi, '').split(/\n\s*\n/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean), out = [], cur = '';
+    pars.forEach(function (p) { if (cur && (cur + ' ' + p).length > 1000) { out.push(cur); cur = p; } else cur = cur ? cur + ' ' + p : p; });
+    if (cur) out.push(cur);
+    return out;
+  }
+  function textoElegido() {
+    var U = window.WARUI, eps = episodiosConGuion(); if (!eps.length) return null;
+    var id = U.get('muestras', 'ep', eps[0].id), ep = eps.filter(function (e) { return e.id === id; })[0] || eps[0], m = minutosDe(ep), n = Math.min(m.length, parseInt(U.get('muestras', 'min', '1'), 10) || 1);
+    return m[n - 1] || '';
+  }
   function pintarPrueba() {
     var c = $('#m-prueba'); if (!c) return;
-    var cuerpo = '<div class="fil-c" style="padding:8px 12px"><textarea id="m-txt" rows="2" style="width:100%;font-size:16px">' + esc(localStorageGet('texto') || '') + '</textarea></div>' +
+    var U = window.WARUI, eps = episodiosConGuion(), filtros = '';
+    if (eps.length) {
+      var id = U.get('muestras', 'ep', eps[0].id), ep = eps.filter(function (e) { return e.id === id; })[0] || eps[0], mins = minutosDe(ep).map(function (x, i) { return [String(i + 1), String(i + 1)]; });
+      filtros = '<div class="barra-f" style="padding:8px 12px 0;justify-content:flex-start;gap:8px">' + U.filtro('muestras', 'ep', 'Episodio', eps.map(function (e, i) { return [e.id, String(e.order || i + 1)]; }), eps[0].id) +
+        U.filtro('muestras', 'min', 'Minuto', mins, '1') + '</div>';
+    }
+    var cuerpo = filtros + '<div class="fil-c" style="padding:8px 12px"><textarea id="m-txt" rows="3" style="width:100%;font-size:16px">' + esc(localStorageGet('texto') || textoElegido() || '') + '</textarea></div>' +
       '<div class="fil-r">' + icono('id="m-pt"') + '<span class="d mut" id="m-pst"></span></div>';
-    c.innerHTML = window.WARUI.grupo('muestras', 'prueba', 'Probar texto', 'Español', cuerpo, true);
+    c.innerHTML = U.grupo('muestras', 'prueba', 'Probar texto', 'Español', cuerpo, true);
   }
+  function elegirTexto() { var t = textoElegido(); if (t !== null) localStorageSet('texto', t); }
 
   window.WARMUESTRAS = {
     muestras: function (el) {
