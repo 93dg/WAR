@@ -4,7 +4,8 @@
   var W = window.WAR, U = window.WARUI, esc = W.esc, edit = null, aviso = '', repintar = function () {};
   var ESTADOS = ['Probando', 'Me gusta', 'Descartado'];
 
-  function lista() { return (W.datos().prompts || []).slice().sort(function (a, b) { return (a.creado || '') < (b.creado || '') ? -1 : 1; }); }
+  function todos() { return W.datos().prompts || []; }
+  function lista() { return todos().filter(function (p) { return p.tipo !== 'ajustes'; }).slice().sort(function (a, b) { return (a.creado || '') < (b.creado || '') ? -1 : 1; }); }
   function porId(id) { return lista().filter(function (p) { return p.id === id; })[0]; }
   function clase(e) { return e === 'Me gusta' ? ' bien' : e === 'Descartado' ? ' venc' : ''; }
 
@@ -35,10 +36,16 @@
       '<div class="fil-r">' + U.accion('Editar', 'data-pr="editar" data-id="' + esc(p.id) + '"') + U.accion('Quitar', 'data-pr="quitar" data-id="' + esc(p.id) + '"') + '</div></details>';
   }
   /* Contenido de los prompts para el apartado Texto para Suno. */
+  function ajustes() {
+    var a = todos().filter(function (p) { return p.tipo === 'ajustes'; })[0]; if (!a) return '';
+    return '<details class="sub"><summary class="fil-r"><span class="t">' + esc(a.nombre) + '</span><span class="d">Referencia</span></summary><div class="cuerpo">' +
+      (a.ajustes || []).map(function (x) { return esc(x[0] + ': ' + x[1]); }).join('\n') + '</div></details>' +
+      '<details class="sub"><summary class="fil-r"><span class="t">Antiestilo</span><span class="d">Referencia</span>' + U.accion('Copiar', 'data-pr="copiar-anti"') + '</summary><div class="cuerpo">' + esc(a.antiestilo) + '</div></details>';
+  }
   function html() {
     var L = lista();
     if (edit) return formulario() + (aviso ? '<p class="mut peq nota">' + esc(aviso) + '</p>' : '');
-    return L.map(filaPrompt).join('') + '<div class="fil-r">' + (L.length ? '' : '<span class="t mut">Sin prompts</span>') + U.accion('Añadir', 'data-pr="nuevo"') + '</div>' + (aviso ? '<p class="mut peq nota">' + esc(aviso) + '</p>' : '');
+    return ajustes() + L.map(filaPrompt).join('') + '<div class="fil-r">' + (L.length ? '' : '<span class="t mut">Sin prompts</span>') + U.accion('Añadir', 'data-pr="nuevo"') + '</div>' + (aviso ? '<p class="mut peq nota">' + esc(aviso) + '</p>' : '');
   }
   function copiar(txt, b) {
     function ok() { b.textContent = 'Copiado'; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); }
@@ -53,6 +60,7 @@
     var b = ev.target.closest('button[data-pr]'); if (!b || !b.closest('#suno')) return;
     ev.preventDefault(); ev.stopPropagation(); aviso = '';
     var a = b.dataset.pr, p = b.dataset.id ? porId(b.dataset.id) : null;
+    if (a === 'copiar-anti') { var q = todos().filter(function (x) { return x.tipo === 'ajustes'; })[0]; if (q) copiar(q.antiestilo, b); return; }
     if (a === 'copiar' && p) { copiar(p.texto, b); return; }
     if (a === 'nuevo') edit = { id: 'p' + Date.now(), nombre: 'Prompt ' + (lista().length + 1), texto: '', nota: '', estado: 'Probando', creado: new Date().toISOString() };
     else if (a === 'editar' && p) edit = Object.assign({}, p);
