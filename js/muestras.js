@@ -4,7 +4,8 @@
   var W = window.WAR, esc = W.esc;
   var SR = 24000, BUCKET = 'war-muestras';
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var E = { audio: null, nombre: '', info: null, ocupado: false, urlPrev: null };
+  var E = { audio: null, nombre: '', info: null, ocupado: false, urlPrev: null, aud: null, clave: null, vig: null };
+  var P = { w: null, espera: {}, ref: null, chunks: [], ocupado: false, base: null };
 
   function mmss(seg) { seg = Math.round(seg); return Math.floor(seg / 60) + ':' + ('0' + (seg % 60)).slice(-2); }
   function dec(n) { return (Math.round(n * 10) / 10).toString().replace('.', ','); }
@@ -84,14 +85,21 @@
   var PLAY = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
   var PAUSA = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>';
   function icono(attrs) { return '<button type="button" class="acc" aria-label="Escuchar" ' + attrs + '>' + PLAY + '</button>'; }
-  /* Reproductor único: el mismo botón escucha y pausa. */
-  function reproducir(url, btn, pie) {
-    var parar = E.aud && E.btn === btn;
-    if (E.aud) { E.aud.pause(); if (E.btn) { E.btn.innerHTML = PLAY; E.btn.setAttribute('aria-label', 'Escuchar'); } E.aud = null; E.btn = null; }
-    if (parar) return;
-    var a = new Audio(url); E.aud = a; E.btn = btn; btn.innerHTML = PAUSA; btn.setAttribute('aria-label', 'Pausar');
-    var fin = function () { if (E.aud === a) { btn.innerHTML = PLAY; btn.setAttribute('aria-label', 'Escuchar'); E.aud = null; E.btn = null; } };
+  /* Reproductor único. Se identifica por la clave del botón, no por el elemento, porque la pantalla se repinta y el botón cambia. */
+  function claveDe(b) { return b.id || ('o:' + b.dataset.oir); }
+  function botonDe(c) { return c.indexOf('o:') === 0 ? $('[data-oir="' + c.slice(2) + '"]') : document.getElementById(c); }
+  function pintarIcono(c, activo) { var b = botonDe(c); if (b) { b.innerHTML = activo ? PAUSA : PLAY; b.setAttribute('aria-label', activo ? 'Pausar' : 'Escuchar'); } }
+  function refrescarIconos() { if (E.clave) pintarIcono(E.clave, true); if (P.ocupado) pintarIcono('m-pt', true); }
+  function parar() {
+    if (E.aud) { E.aud.pause(); E.aud = null; }
+    clearInterval(E.vig); var c = E.clave; E.clave = null; if (c) pintarIcono(c, false);
+  }
+  function reproducir(url, btn) {
+    var c = claveDe(btn), mismo = E.clave === c; parar(); if (mismo) return;
+    var a = new Audio(url); E.aud = a; E.clave = c; pintarIcono(c, true);
+    var fin = function () { if (E.aud === a) parar(); };
     a.onended = fin; a.onerror = fin; a.play().catch(fin);
+    E.vig = setInterval(function () { if (!document.querySelector('#m-prueba')) parar(); }, 500);
   }
   function escuchar(blob, btn) {
     if (E.urlPrev) URL.revokeObjectURL(E.urlPrev);
@@ -203,7 +211,7 @@
       return '<div class="fil-r" data-m="' + esc(m.id) + '"><span class="t">' + esc(m.nombre || m.id) + '</span><span class="d">' + mmss(m.dur || 0) + '</span>' +
         icono('data-oir="' + esc(m.id) + '"') + U.accion('Quitar', 'data-borrar="' + esc(m.id) + '"') + '</div>';
     }).join('');
-    l.innerHTML = U.grupo('muestras', 'guardadas', 'Voces guardadas', dec(minutosGuardados()) + ' min', filas || '<div class="fil-r"><span class="t mut">Ninguna</span></div>', true);
+    l.innerHTML = U.grupo('muestras', 'guardadas', 'Voces guardadas', dec(minutosGuardados()) + ' min', filas || '<div class="fil-r"><span class="t mut">Ninguna</span></div>', true); refrescarIconos();
   }
   function pintarEditor() {
     var ed = $('#m-editor'); if (!ed) return;
@@ -213,7 +221,7 @@
       dato('Ruido de fondo', i.nivel.charAt(0).toUpperCase() + i.nivel.slice(1) + (i.limpiado ? ', limpiado' : ', sin cambios')) + dato('Duración', mmss(E.audio.length / SR)) +
       '<canvas id="m-onda" style="width:100%;height:64px;margin:.4rem 0;display:block"></canvas>' +
       '<div class="fil-r" style="border:0;padding:0;min-height:0;gap:18px">' + icono('id="m-oir"') + U.accion('Guardar voz', 'id="m-guardar"') + U.accion('Descartar', 'id="m-descartar"') + '</div></div>';
-    pintarOnda();
+    pintarOnda(); refrescarIconos();
   }
   function setEst(t) { var e = $('#m-est'); if (e) e.textContent = t; }
 
@@ -283,7 +291,7 @@
     if (t.id === 'm-oir') escuchar(wav(recorte(E.audio, 0, E.audio.length / SR, 1)), t);
     else if (t.id === 'm-guardar') guardarVoz();
     else if (t.id === 'm-pt') probarTexto(t);
-    else if (t.id === 'm-descartar') { if (E.aud) { E.aud.pause(); E.aud = null; E.btn = null; } E.audio = null; setEst('MP3, WAV, M4A o MP4'); pintarEditor(); }
+    else if (t.id === 'm-descartar') { parar(); E.audio = null; setEst('MP3, WAV, M4A o MP4'); pintarEditor(); }
     else if (t.dataset.oir) oirGuardada(t.dataset.oir, t);
     else if (t.dataset.borrar) borrar(t.dataset.borrar);
   }
@@ -294,7 +302,6 @@
   }
 
   /* ---------- Probar un texto con la voz (Pocket TTS en español, en el navegador, con el procesador) ---------- */
-  var P = { w: null, espera: {}, ref: null, chunks: [], ocupado: false, base: null };
   function pEst(t) { var e = $('#m-pst'); if (e) e.textContent = t; }
   function pEsperar(tipo) { return new Promise(function (ok, ko) { P.espera[tipo] = { ok: ok, ko: ko }; }); }
   function pFallo(msg) { Object.keys(P.espera).forEach(function (k) { P.espera[k].ko(new Error(msg)); }); P.espera = {}; }
@@ -336,11 +343,11 @@
     }).then(function (pcm) { return { clave: 'gua:' + m.id, pcm: pcm }; });
   }
   function probarTexto(btn) {
-    if (E.aud && E.btn === btn) { reproducir('', btn); return; }
-    if (P.ocupado) return;
+    if (E.clave === 'm-pt') { parar(); return; }
+    if (P.ocupado) { P.ocupado = false; if (P.w) P.w.postMessage({ type: 'stop' }); pFallo('Cancelado'); pintarIcono('m-pt', false); return; }
     var texto = ($('#m-txt').value || '').trim();
     if (!texto) { pEst('Escribe un texto'); return; }
-    localStorageSet('texto', texto); P.ocupado = true; P.chunks = [];
+    localStorageSet('texto', texto); P.ocupado = true; P.chunks = []; pintarIcono('m-pt', true);
     var w = pTrabajador(), listo = P.listo ? Promise.resolve() : (w.postMessage({ type: 'load' }), pEsperar('loaded').then(function () { P.listo = true; }));
     pEst('Preparando…');
     var base = window.WARUI.get('muestras', 'voz', 'mia') === 'base';
@@ -356,10 +363,10 @@
       var n = P.chunks.reduce(function (t, c) { return t + c.length; }, 0), todo = new Float32Array(n), p = 0;
       if (!n) throw new Error('No se generó audio');
       P.chunks.forEach(function (c) { todo.set(c, p); p += c.length; });
-      P.ocupado = false; pEst(mmss(n / SR));
+      if (!P.ocupado) return; P.ocupado = false; pEst(mmss(n / SR));
       if (E.urlPrev) URL.revokeObjectURL(E.urlPrev);
       E.urlPrev = URL.createObjectURL(wav(recorte(todo, 0, n / SR, 1))); reproducir(E.urlPrev, btn);
-    }).catch(function (e) { P.ocupado = false; pEst('Error: ' + (e.message || e)); });
+    }).catch(function (e) { var cancel = !P.ocupado; P.ocupado = false; if (E.clave !== 'm-pt') pintarIcono('m-pt', false); pEst(cancel ? 'Cancelado' : 'Error: ' + (e.message || e)); });
   }
   /* Guion de un episodio sin marcas de pausa, en trozos de un minuto (unos 900 caracteres), cortados por párrafo. */
   function episodiosConGuion() {
@@ -386,13 +393,13 @@
     }
     var cuerpo = filtros + '<div class="fil-c" style="padding:8px 12px"><textarea id="m-txt" rows="3" style="width:100%;font-size:16px">' + esc(localStorageGet('texto') || textoElegido() || '') + '</textarea></div>' +
       '<div class="fil-r">' + icono('id="m-pt"') + '<span class="d mut" id="m-pst"></span></div>';
-    c.innerHTML = U.grupo('muestras', 'prueba', 'Probar texto', 'Español', cuerpo, true);
+    c.innerHTML = U.grupo('muestras', 'prueba', 'Probar texto', 'Español', cuerpo, true); refrescarIconos();
   }
   function elegirTexto() { var t = textoElegido(); if (t !== null) localStorageSet('texto', t); }
 
   window.WARMUESTRAS = {
     muestras: function (el) {
-      E.audio = null;
+      parar(); E.audio = null;
       el.innerHTML = cabecera(); pintarLista(); pintarPrueba();
       el.onclick = clic; el.onchange = cambio;
     },
