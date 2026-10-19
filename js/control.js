@@ -78,9 +78,8 @@
   function etapas() {
     var eps = W.datos().episodios || [], cuenta = {};
     eps.forEach(function (e) { var k = e.status || 'Idea'; cuenta[k] = (cuenta[k] || 0) + 1; });
-    return '<div class="etapas">' + ETAPAS.map(function (e) {
-      return '<div class="' + (cuenta[e] ? 'con' : '') + '"><span>' + esc(e) + '</span><b>' + (cuenta[e] || 0) + '</b></div>';
-    }).join('') + '</div>';
+    var con = ETAPAS.filter(function (e) { return cuenta[e]; });
+    return '<p class="mut">' + (con.length ? con.map(function (e) { return esc(e) + ': ' + cuenta[e]; }).join(' · ') : 'Todavía no hay episodios.') + '</p>';
   }
 
   function chips() {
@@ -90,18 +89,17 @@
     }).join('') + '</div>';
   }
 
+  function notas() {
+    var L = (W.datos().notas || []).slice().sort(function (a, b) { return a.creada < b.creada ? 1 : -1; }).slice(0, 5);
+    return L.length ? '<h3>Notas</h3>' + L.map(function (n) { return '<div class="item"><div>' + esc(n.texto) + '</div><div class="mut peq">' + fmt(n.creada) + '</div></div>'; }).join('') : '';
+  }
   function vista(el) {
     var D = W.datos(), eps = D.episodios || [], pub = eps.filter(function (e) { return e.status === 'Publicado'; }).length;
     var ts = tareasPendientes(), venc = ts.filter(function (t) { return dias(t.fecha) < 0; }).length, av = avisos().length;
     el.innerHTML = '<h2>Centro de control</h2>' +
-      '<div class="cifras"><div><b>' + (ts.length + av) + '</b><span class="mut peq">Pendientes</span></div><div><b class="' + (venc ? 'venc' : '') + '">' + venc + '</b><span class="mut peq">Vencidas</span></div>' +
-      '<div><b>' + pub + ' de ' + eps.length + '</b><span class="mut peq">Episodios publicados</span></div><div><b>' + dec(minutosVoz()) + ' min</b><span class="mut peq">Voz guardada</span></div></div>' +
+      '<p class="mut">' + (ts.length + av) + ' pendientes · <span class="' + (venc ? 'venc' : '') + '">' + venc + ' vencidas</span> · ' + pub + ' de ' + eps.length + ' episodios publicados · ' + dec(minutosVoz()) + ' min de voz</p>' +
       '<h3>Pendiente</h3>' + chips() + '<div id="c-grupos">' + grupos() + '</div>' +
-      '<h3>Estado de los episodios</h3>' + etapas() +
-      '<h3>Nueva tarea</h3><div class="tarjeta"><label for="c-tit">Qué hay que hacer</label><input id="c-tit" type="text" placeholder="Por ejemplo, cargar el libro 1">' +
-      '<label for="c-cat">Tipo</label><select id="c-cat">' + CATS.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select>' +
-      '<label for="c-fec">Fecha límite</label><input id="c-fec" type="date" value="' + sumar(hoy(), 7) + '">' +
-      '<div class="fila"><button type="button" class="btn principal" id="c-add">Añadir tarea</button></div><div class="mut peq" id="c-est" style="margin-top:.7rem"></div></div>';
+      '<h3>Estado de los episodios</h3>' + etapas() + notas();
   }
 
   function guardar(t) {
@@ -119,15 +117,6 @@
       var tar = (W.datos().tareas || []).filter(function (x) { return x.id === t.dataset.hecha; })[0]; if (!tar) return;
       tar.estado = 'hecha'; tar.cerrada = hoy();
       guardar(tar).then(function (r) { if (r && r.error) { tar.estado = 'pendiente'; var e = document.getElementById('c-est'); if (e) e.textContent = 'No se pudo guardar: ' + r.error.message; } repintar(); });
-    } else if (t.id === 'c-add') {
-      var tit = document.getElementById('c-tit').value.trim(), fec = document.getElementById('c-fec').value, est = document.getElementById('c-est');
-      if (!tit) { est.textContent = 'Escribe qué hay que hacer.'; return; }
-      if (!fec) { est.textContent = 'Toda tarea necesita una fecha.'; return; }
-      var n = { id: 't' + Date.now().toString(36), titulo: tit, categoria: document.getElementById('c-cat').value, fecha: fec, estado: 'pendiente', creada: hoy() };
-      guardar(n).then(function (r) {
-        if (r && r.error) { est.textContent = 'No se pudo guardar: ' + r.error.message; return; }
-        var D = W.datos(); D.tareas = D.tareas || []; D.tareas.push(n); repintar();
-      });
     }
   }
   function alternar(ev) {
