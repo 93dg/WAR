@@ -60,6 +60,8 @@ label.btn{cursor:pointer}
 .seg{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:0 0 6px;background:var(--card)}
 .seg.sel{border-color:var(--acc)}.seg input{margin-top:8px;padding:8px 12px}
 .t1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+details.sub>summary{list-style:none;cursor:pointer}details.sub>summary::-webkit-details-marker{display:none}
+.cuerpo{padding:8px 14px 12px;color:var(--mut);font-size:.92rem;white-space:pre-line;border-top:1px solid var(--line)}
 button.acc{border:0;background:transparent;padding:4px 2px;color:var(--acc);font-weight:700;border-radius:8px}
 details.grupo>summary::-webkit-details-marker{display:none}
 .num{display:inline-block;min-width:1.7rem;padding:1px 9px;border-radius:999px;border:1px solid var(--acc);color:var(--acc);font-size:.8rem;font-weight:500;text-align:center}
@@ -92,7 +94,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.18</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.19</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -146,7 +148,7 @@ function ordenar(a,k){return (a||[]).slice().sort(function(x,y){return (x[k||'or
 function nombreObra(id){var o=(D.obras||[]).filter(function(x){return x.id===id})[0];return o?o.nombre:''}
 
 function menu(){
-  var items=[['control','Control'],['episodios','Episodios'],['muestras','Muestras'],['narrador','Narrador'],['biblioteca','Biblioteca']];
+  var items=[['control','Control'],['episodios','Episodios'],['muestras','Muestras'],['sistema','Sistema'],['biblioteca','Biblioteca']];
   $('menu').innerHTML=items.map(function(i){return '<button type="button" data-v="'+i[0]+'" class="'+(vista===i[0]?'on':'')+'">'+i[1]+'</button>'}).join('');
 }
 
@@ -183,6 +185,7 @@ function pintar(){
   if(vista==='control'&&window.WARCONTROL){el.innerHTML='';window.WARCONTROL.control(el)}
   else if(vista==='episodios')vEpisodios();
   else if(vista==='biblioteca')vBiblioteca();
+  else if(vista==='sistema'&&window.WARSISTEMA){el.innerHTML='';window.WARSISTEMA.sistema(el)}
   else if(vista==='muestras'&&window.WARMUESTRAS){el.innerHTML='';window.WARMUESTRAS.muestras(el)}
   else if(window.WARVOCES&&window.WARVOCES[vista]){el.innerHTML='';window.WARVOCES[vista](el)}
   else el.innerHTML='<p class="mut">No se pudo cargar el módulo de voces. Recarga la página.</p>';
@@ -209,11 +212,12 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/voces.js?v=1.18"></script>
-<script src="js/muestras.js?v=1.18"></script>
-<script src="js/ui.js?v=1.18"></script>
-<script src="js/control.js?v=1.18"></script>
-<script src="js/reportes.js?v=1.18"></script>
-<script src="js/asistente.js?v=1.18"></script>
+<script src="js/voces.js?v=1.19"></script>
+<script src="js/muestras.js?v=1.19"></script>
+<script src="js/ui.js?v=1.19"></script>
+<script src="js/control.js?v=1.19"></script>
+<script src="js/sistema.js?v=1.19"></script>
+<script src="js/reportes.js?v=1.19"></script>
+<script src="js/asistente.js?v=1.19"></script>
 </body>
 </html>
