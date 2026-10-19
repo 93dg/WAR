@@ -194,7 +194,7 @@
   function cabecera() {
     return '<div class="fil-c"><label for="m-voz">Voz</label><input id="m-voz" type="text" value="' + esc(localStorageGet('voz') || 'Voz de la serie') + '"></div>' +
       '<div class="barra-f" style="margin-top:8px"><label class="btn" for="m-arch">Elegir archivo</label><input id="m-arch" class="oculto" type="file" multiple><span class="mut peq" id="m-est">MP3, WAV, M4A o MP4</span></div>' +
-      '<div id="m-editor"></div><div id="m-lista"></div>';
+      '<div id="m-editor"></div><div id="m-lista"></div><div id="m-prueba"></div>';
   }
   function pintarLista() {
     var l = $('#m-lista'); if (!l) return;
@@ -276,6 +276,7 @@
     var t = ev.target.closest('button'); if (!t) return;
     if (t.id === 'm-oir') escuchar(wav(recorte(E.audio, 0, E.audio.length / SR, 1)), t);
     else if (t.id === 'm-guardar') guardarVoz();
+    else if (t.id === 'm-pt') probarTexto(t);
     else if (t.id === 'm-descartar') { if (E.aud) { E.aud.pause(); E.aud = null; E.btn = null; } E.audio = null; setEst('MP3, WAV, M4A o MP4'); pintarEditor(); }
     else if (t.dataset.oir) oirGuardada(t.dataset.oir, t);
     else if (t.dataset.borrar) borrar(t.dataset.borrar);
@@ -285,10 +286,70 @@
     if (t.id === 'm-arch') { if (t.files && t.files.length) cargarArchivo(t.files); t.value = ''; }
   }
 
+  /* ---------- Probar un texto con la voz (Pocket TTS en español, en el navegador, con el procesador) ---------- */
+  var P = { w: null, espera: {}, ref: null, chunks: [], ocupado: false };
+  function pEst(t) { var e = $('#m-pst'); if (e) e.textContent = t; }
+  function pEsperar(tipo) { return new Promise(function (ok, ko) { P.espera[tipo] = { ok: ok, ko: ko }; }); }
+  function pFallo(msg) { Object.keys(P.espera).forEach(function (k) { P.espera[k].ko(new Error(msg)); }); P.espera = {}; }
+  function pTrabajador() {
+    if (P.w) return P.w;
+    var w = new Worker('pocket/inference-worker.js?v=1.14'); P.w = w;
+    w.onerror = function (e) { pFallo('No se pudo iniciar el motor de voz'); P.w = null; };
+    w.onmessage = function (ev) {
+      var m = ev.data || {}, r;
+      if (m.type === 'status' && m.state === 'loading') pEst('Preparando el motor (solo la primera vez)…');
+      else if (m.type === 'status' && m.state === 'running') pEst('Generando…');
+      else if (m.type === 'error') pFallo(String(m.error || 'Error del motor de voz'));
+      else if (m.type === 'audio_chunk') P.chunks.push(m.data);
+      else if ((r = P.espera[m.type])) { delete P.espera[m.type]; r.ok(m); }
+    };
+    return w;
+  }
+  function pReferencia() {
+    if (E.audio) return Promise.resolve({ clave: 'act:' + E.nombre + ':' + E.audio.length, pcm: E.audio });
+    var g = guardadas(), m = g[g.length - 1];
+    if (!m) return Promise.reject(new Error('Sube y guarda una voz primero'));
+    if (P.ref === 'gua:' + m.id) return Promise.resolve({ clave: P.ref });
+    return W.sb.storage.from(BUCKET).download(m.ruta).then(function (r) {
+      if (r.error) throw r.error; return decodificar(r.data, function () {});
+    }).then(function (pcm) { return { clave: 'gua:' + m.id, pcm: pcm }; });
+  }
+  function probarTexto(btn) {
+    if (E.aud && E.btn === btn) { reproducir('', btn); return; }
+    if (P.ocupado) return;
+    var texto = ($('#m-txt').value || '').trim();
+    if (!texto) { pEst('Escribe un texto'); return; }
+    localStorageSet('texto', texto); P.ocupado = true; P.chunks = [];
+    var w = pTrabajador(), listo = P.listo ? Promise.resolve() : (w.postMessage({ type: 'load' }), pEsperar('loaded').then(function () { P.listo = true; }));
+    pEst('Preparando…');
+    listo.then(pReferencia).then(function (ref) {
+      if (ref.clave === P.ref) return;
+      var clip = ref.pcm.slice(0, SR * 10), v = pEsperar('voice_encoded');
+      w.postMessage({ type: 'encode_voice', data: { audio: clip } }, [clip.buffer]);
+      return v.then(function () { P.ref = ref.clave; });
+    }).then(function () {
+      var fin = pEsperar('stream_ended'); w.postMessage({ type: 'generate', data: { text: texto, voice: 'custom' } });
+      return fin;
+    }).then(function () {
+      var n = P.chunks.reduce(function (t, c) { return t + c.length; }, 0), todo = new Float32Array(n), p = 0;
+      if (!n) throw new Error('No se generó audio');
+      P.chunks.forEach(function (c) { todo.set(c, p); p += c.length; });
+      P.ocupado = false; pEst(mmss(n / SR));
+      if (E.urlPrev) URL.revokeObjectURL(E.urlPrev);
+      E.urlPrev = URL.createObjectURL(wav(recorte(todo, 0, n / SR, 1))); reproducir(E.urlPrev, btn);
+    }).catch(function (e) { P.ocupado = false; pEst('Error: ' + (e.message || e)); });
+  }
+  function pintarPrueba() {
+    var c = $('#m-prueba'); if (!c) return;
+    var cuerpo = '<div class="fil-c" style="padding:8px 12px"><textarea id="m-txt" rows="2" style="width:100%;font-size:16px">' + esc(localStorageGet('texto') || '') + '</textarea></div>' +
+      '<div class="fil-r">' + icono('id="m-pt"') + '<span class="d mut" id="m-pst"></span></div>';
+    c.innerHTML = window.WARUI.grupo('muestras', 'prueba', 'Probar texto', 'Español', cuerpo, true);
+  }
+
   window.WARMUESTRAS = {
     muestras: function (el) {
       E.audio = null;
-      el.innerHTML = cabecera(); pintarLista();
+      el.innerHTML = cabecera(); pintarLista(); pintarPrueba();
       el.onclick = clic; el.onchange = cambio;
     },
     _medir: medir, _limpiar: limpiarRuido, _extraer: extraerVoz

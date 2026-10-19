@@ -1,0 +1,1 @@
+Motor de voz en el navegador: Pocket TTS (Kyutai, modelos CC BY 4.0), exportado a ONNX por KevinAHM (código Apache 2.0) y adaptado para web por hemanth/pocket-voice (MIT). El worker de esta carpeta es una copia con el idioma por defecto cambiado a español.
