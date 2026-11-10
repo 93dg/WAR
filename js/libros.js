@@ -130,14 +130,14 @@
       var r = N.parsear(pags);
       if (!r.partes.length) throw new Error('No se encontraron libros ni capítulos en el PDF.');
       pend = { id: b.id, titulo: b.titulo, autor: b.autor, res: r, archivo: file.name };
-      estado = ''; pintarImportar();
+      guardar();
     }).catch(function (e) { estado = 'No se pudo leer el PDF: ' + (e.message || e); pintarImportar(); });
   }
   function guardar() {
     if (!pend) return;
     var p = pend, hoy = new Date().toISOString(), i = 0;
     var libro = { titulo: p.titulo, autor: p.autor, archivo: p.archivo, importado: hoy, nota: 'Se han quitado los resúmenes del editor; en los libros que no son el primero la limpieza es automática y aproximada.',
-      partes: p.res.partes.map(function (pt) { return { n: pt.n, titulo: pt.titulo, capitulos: pt.capitulos.length, palabras: pt.palabras }; }) };
+      partes: p.res.partes.map(function (pt) { return { n: pt.n, titulo: pt.titulo, capitulos: pt.capitulos.length, palabras: pt.palabras, caps: pt.capitulos.map(function (c) { return c.palabras; }) }; }) };
     function sig() {
       if (i >= p.res.partes.length) return W.sb.from('war_docs').upsert({ coleccion: 'libros', id: p.id, datos: libro, actualizado: hoy });
       var pt = p.res.partes[i++]; estado = 'Guardando ' + pt.titulo + '…'; pintarImportar();
@@ -157,23 +157,13 @@
     var c = document.getElementById('imp'); if (!c) return;
     var h = '<label class="btn" for="imp-file" style="margin:8px 14px">Elegir PDF</label><input id="imp-file" type="file" accept="application/pdf" hidden>';
     if (estado) h += '<p class="mut peq" style="margin:0 14px 8px">' + esc(estado) + '</p>';
-    if (pend) {
-      var np = pend.res.partes.length, nc = pend.res.partes.reduce(function (a, p) { return a + p.capitulos.length; }, 0), pal = pend.res.partes.reduce(function (a, p) { return a + p.palabras; }, 0);
-      h += '<div class="fil-c" style="margin:0 14px"><label for="imp-t">Título</label><input id="imp-t" value="' + esc(pend.titulo) + '"></div>' +
-        '<div class="fil-c" style="margin:0 14px"><label for="imp-a">Autor</label><input id="imp-a" value="' + esc(pend.autor) + '"></div>' +
-        U.fila(np + ' libros · ' + nc + ' capítulos', miles(pal) + ' pal.', '') +
-        U.fila('Notas del editor quitadas', String(pend.res.quitados), U.accion('Guardar', 'data-lib-guardar="1"'));
-    }
+    if (pend) h += U.fila(pend.res.partes.length + ' libros · ' + pend.res.partes.reduce(function (a, p) { return a + p.capitulos.length; }, 0) + ' capítulos', miles(pend.res.partes.reduce(function (a, p) { return a + p.palabras; }, 0)) + ' pal.', '');
     c.innerHTML = h;
   }
 
   function biblioteca(el) {
     host = el; pintar();
     el.onclick = function (ev) {
-      var b = ev.target.closest('button[data-lib-guardar]'); if (!b) return;
-      var t = document.getElementById('imp-t'), a = document.getElementById('imp-a');
-      if (t) pend.titulo = t.value.trim() || pend.titulo; if (a) pend.autor = a.value.trim();
-      guardar();
     };
     el.onchange = function (ev) {
       if (ev.target.id === 'imp-file' && ev.target.files[0]) importar(ev.target.files[0]);
@@ -217,5 +207,28 @@
     });
   }
 
-  window.WARLIBROS = { biblioteca: biblioteca, origen: origen };
+  /* Clasificación del episodio por libro: título, capítulos de donde sale y porcentaje aproximado del libro. */
+  function clasificar(e) {
+    var fs = e.fuentes || [];
+    if (!fs.length) return { libro: nombreDeObra(e) || 'Sin libro', linea: e.pasajes || '' };
+    var id = String(fs[0].texto).split('-l')[0], lib = (D().libros || []).filter(function (x) { return x.id === id; })[0];
+    var caps = fs.map(function (f) { return f.cap; }), mn = Math.min.apply(null, caps), mx = Math.max.apply(null, caps);
+    var partes = {}; fs.forEach(function (f) { partes[f.texto] = 1; });
+    var ps = Object.keys(partes).map(function (k) { return 'Libro ' + romano(+k.split('-l')[1]); }).join(' y ');
+    var linea = ps + ', ' + (mn === mx ? 'cap. ' + mn : 'caps. ' + mn + ' a ' + mx);
+    if (lib) {
+      var tot = lib.partes.reduce(function (a, p) { return a + p.palabras; }, 0), pal = 0;
+      Object.keys(partes).forEach(function (k) {
+        var n = +k.split('-l')[1], pt = lib.partes.filter(function (x) { return x.n === n; })[0], cs = fs.filter(function (f) { return f.texto === k; }).map(function (f) { return f.cap; });
+        if (!pt) return;
+        if (pt.caps) { for (var c = Math.min.apply(null, cs); c <= Math.max.apply(null, cs); c++) pal += pt.caps[c - 1] || 0; }
+        else pal += fs.filter(function (f) { return f.texto === k; }).reduce(function (a, f) { return a + (f.fin - f.ini); }, 0) / 6;
+      });
+      if (tot) linea += ' · ' + (Math.round(pal / tot * 1000) / 10).toString().replace('.', ',') + ' % del libro';
+    }
+    return { libro: lib ? lib.titulo : (nombreDeObra(e) || 'Sin libro'), linea: linea };
+  }
+  function nombreDeObra(e) { var o = (D().obras || []).filter(function (x) { return x.id === e.obraId; })[0]; return o ? o.nombre : ''; }
+  function romano(n) { return ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n); }
+  window.WARLIBROS = { biblioteca: biblioteca, origen: origen, clasificar: clasificar };
 })();

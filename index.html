@@ -43,6 +43,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible,a.btn:focus-visible
 .tarjeta{display:block;width:100%;text-align:left;margin:0 0 12px;padding:16px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,var(--card2),var(--card));color:var(--tx)}
 button.tarjeta{cursor:pointer;font:inherit}
 .tarjeta b{font-weight:600;font-size:1.02rem;display:block}
+.tarjeta span{display:block}
 .tarjeta .nota{margin-top:.8rem}
 .tarjeta.sel{border-color:var(--acc)}
 details.grupo{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--card2),var(--card));margin:0 0 8px;overflow:hidden}
@@ -91,13 +92,17 @@ audio{width:100%;margin-top:.9rem}
 #aviso{margin-top:.8rem;color:var(--err);min-height:1.4em;font-size:.92rem}
 #acceso{max-width:26rem;margin:8vh auto 0}
 nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:6px;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:rgba(10,15,31,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+#mas-fondo{position:fixed;inset:0;z-index:7;background:rgba(0,0,0,.45)}
+#mas{position:fixed;top:0;right:0;bottom:0;z-index:8;width:min(70vw,16rem);padding:calc(18px + env(safe-area-inset-top)) 14px 18px;background:var(--bg);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+#mas[hidden],#mas-fondo[hidden]{display:none}
+#mas button{text-align:left;padding:12px 10px}
 nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-color:transparent;color:var(--mut)}
 [hidden]{display:none !important}
 @media (min-width:700px){main{padding-top:32px}}
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.25</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.26</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -117,6 +122,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
   </section>
 </main>
 <nav id="menu" hidden></nav>
+<div id="mas-fondo" hidden></div><aside id="mas" hidden aria-label="Más"></aside>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
@@ -151,8 +157,9 @@ function ordenar(a,k){return (a||[]).slice().sort(function(x,y){return (x[k||'or
 function nombreObra(id){var o=(D.obras||[]).filter(function(x){return x.id===id})[0];return o?o.nombre:''}
 
 function menu(){
-  var items=[['control','Control'],['episodios','Episodios'],['muestras','Muestras'],['sistema','Sistema'],['biblioteca','Biblioteca']];
-  $('menu').innerHTML=items.map(function(i){return '<button type="button" data-v="'+i[0]+'" class="'+(vista===i[0]?'on':'')+'">'+i[1]+'</button>'}).join('');
+  var items=[['control','Control'],['episodios','Episodios'],['muestras','Muestras'],['biblioteca','Biblioteca']];
+  $('menu').innerHTML=items.map(function(i){return '<button type="button" data-v="'+i[0]+'" class="'+(vista===i[0]?'on':'')+'">'+i[1]+'</button>'}).join('')+'<button type="button" data-mas="1" class="'+(vista==='sistema'?'on':'')+'">Más</button>';
+  $('mas').innerHTML=[['sistema','Sistema']].map(function(i){return '<button type="button" data-v="'+i[0]+'" class="'+(vista===i[0]?'on':'')+'">'+i[1]+'</button>'}).join('');
 }
 
 function vEpisodios(){
@@ -164,15 +171,17 @@ function vEpisodios(){
     h+='<div class="fila" style="margin-top:0"><button type="button" data-volver="1">Volver a los episodios</button></div>';
     h+='<h2 style="margin-top:1rem">'+esc(e.titulo)+'</h2><p class="mut">'+esc(nombreObra(e.obraId))+' · '+esc(e.status||'')+'</p>';
     h+='<div class="cifras"><div><b>'+d.min.toFixed(1).replace('.',',')+' min</b><span class="mut peq">Duración estimada</span></div><div><b>'+d.palabras+'</b><span class="mut peq">Palabras</span></div></div>';
-    h+='<div id="suno"></div><h3>Idea</h3><p>'+esc(e.idea)+'</p><h3>Pregunta</h3><p>'+esc(e.pregunta)+'</p>';
+    h+='<div id="origen"></div><div id="suno"></div><h3>Idea</h3><p>'+esc(e.idea)+'</p><h3>Pregunta</h3><p>'+esc(e.pregunta)+'</p>';
     h+='<h3>Guion</h3><div class="guion">'+(e.script||'').split(/\n\s*\n/).map(function(p){
       return '<p>'+esc(p).replace(/\[pausa(?:\s+(\d+))?\]/g,function(m,n){return ' <span class="pausa">pausa '+(n||3)+' s</span>'})+'</p>'}).join('')+'</div>';
-    h+='<div id="origen"></div><h3>Para practicar</h3><p>'+esc(e.practica)+'</p>';
+    h+='<h3>Para practicar</h3><p>'+esc(e.practica)+'</p>';
     h+='<h3>Frase final</h3><p>'+esc(e.fraseFinal)+'</p>';
   }else{
     h+='<h2>Episodios</h2>';
     var eps=ordenar(D.episodios);
-    h+=eps.length?eps.map(function(e){var d=duracion(e.script||'',(D.config||[])[0]);return '<button type="button" class="tarjeta" data-ep="'+esc(e.id)+'"><b>'+esc(e.titulo)+'</b><span class="mut peq">'+esc(e.status||'')+' · '+d.min.toFixed(0)+' min</span></button>'}).join(''):'<p class="mut">Todavía no hay episodios.</p>';
+    var grupos=[],idx={};
+    eps.forEach(function(e){var c=window.WARLIBROS?window.WARLIBROS.clasificar(e):{libro:'Sin libro',linea:''};if(idx[c.libro]===undefined){idx[c.libro]=grupos.length;grupos.push({n:c.libro,l:[]})}grupos[idx[c.libro]].l.push([e,c])});
+    h+=eps.length?grupos.map(function(g){return '<h3>'+esc(g.n)+'</h3>'+g.l.map(function(x){var e=x[0],d=duracion(e.script||'',(D.config||[])[0]);return '<button type="button" class="tarjeta" data-ep="'+esc(e.id)+'"><b>'+esc(e.titulo)+'</b><span class="mut peq">'+esc(e.status||'')+' · '+d.min.toFixed(0)+' min</span>'+(x[1].linea?'<span class="mut peq">'+esc(x[1].linea)+'</span>':'')+'</button>'}).join('')}).join(''):'<p class="mut">Todavía no hay episodios.</p>';
   }
   $('vista').innerHTML=h;
   if(sel&&window.WARSUNO)window.WARSUNO.bloque((D.episodios||[]).filter(function(x){return x.id===sel})[0],$('suno'));
@@ -192,10 +201,12 @@ function pintar(){
 
 document.addEventListener('click',function(ev){
   var t=ev.target.closest('button');if(!t)return;
-  if(t.dataset.v){vista=t.dataset.v;sel=null;pintar()}
+  if(t.dataset.mas){var a=$('mas');a.hidden=!a.hidden;$('mas-fondo').hidden=a.hidden;return}
+  if(t.dataset.v){vista=t.dataset.v;sel=null;$('mas').hidden=true;$('mas-fondo').hidden=true;pintar()}
   else if(t.dataset.ep){sel=t.dataset.ep;pintar()}
   else if(t.dataset.volver){sel=null;pintar()}
 });
+$('mas-fondo').addEventListener('click',function(){$('mas').hidden=true;$('mas-fondo').hidden=true});
 $('salir').addEventListener('click',async function(){await sb.auth.signOut();D={};mostrarAcceso('')});
 $('form').addEventListener('submit',async function(ev){
   ev.preventDefault();$('aviso').textContent='Entrando…';
@@ -211,16 +222,16 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/voces.js?v=1.25"></script>
-<script src="js/muestras.js?v=1.25"></script>
-<script src="js/ui.js?v=1.25"></script>
-<script src="js/libros_nucleo.js?v=1.25"></script>
-<script src="js/libros.js?v=1.25"></script>
-<script src="js/prompts.js?v=1.25"></script>
-<script src="js/suno.js?v=1.25"></script>
-<script src="js/control.js?v=1.25"></script>
-<script src="js/sistema.js?v=1.25"></script>
-<script src="js/reportes.js?v=1.25"></script>
-<script src="js/asistente.js?v=1.25"></script>
+<script src="js/voces.js?v=1.26"></script>
+<script src="js/muestras.js?v=1.26"></script>
+<script src="js/ui.js?v=1.26"></script>
+<script src="js/libros_nucleo.js?v=1.26"></script>
+<script src="js/libros.js?v=1.26"></script>
+<script src="js/prompts.js?v=1.26"></script>
+<script src="js/suno.js?v=1.26"></script>
+<script src="js/control.js?v=1.26"></script>
+<script src="js/sistema.js?v=1.26"></script>
+<script src="js/reportes.js?v=1.26"></script>
+<script src="js/asistente.js?v=1.26"></script>
 </body>
 </html>
