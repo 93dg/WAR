@@ -109,7 +109,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.32</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.33</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -142,12 +142,11 @@ var sb=null,D={},vista='control',sel=null;
 try{sb=window.supabase.createClient(URL,KEY)}catch(e){}
 
 function duracion(txt,cfg){
-  var wpm=(cfg&&cfg.wpm)||105,pp=(cfg&&cfg.pausaParrafo)||4,seg=0;
-  txt.replace(/\[pausa(?:\s+(\d+))?\]/g,function(m,n){seg+=n?+n:3;return ''});
+  /* Suno no recibe las marcas de pausa: la duración sale solo de las palabras, con el ritmo medido (palabras por minuto en config). */
+  var wpm=(cfg&&cfg.wpm)||145;
   var limpio=txt.replace(/\[pausa(?:\s+\d+)?\]/g,' ');
   var palabras=(limpio.match(/\S+/g)||[]).length;
-  seg+=txt.split(/\n\s*\n/).length*pp;
-  return{palabras:palabras,min:palabras/wpm+seg/60};
+  return{palabras:palabras,min:palabras/wpm};
 }
 window.WAR={sb:sb,esc:esc,duracion:duracion,datos:function(){return D},ir:function(v){vista=v;sel=null;pintar()},pintar:function(){pintar()}};
 
@@ -233,14 +232,14 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/ui.js?v=1.32"></script>
-<script src="js/libros_nucleo.js?v=1.32"></script>
-<script src="js/libros.js?v=1.32"></script>
-<script src="js/prompts.js?v=1.32"></script>
-<script src="js/suno.js?v=1.32"></script>
-<script src="js/control.js?v=1.32"></script>
-<script src="js/sistema.js?v=1.32"></script>
-<script src="js/reportes.js?v=1.32"></script>
-<script src="js/asistente.js?v=1.32"></script>
+<script src="js/ui.js?v=1.33"></script>
+<script src="js/libros_nucleo.js?v=1.33"></script>
+<script src="js/libros.js?v=1.33"></script>
+<script src="js/prompts.js?v=1.33"></script>
+<script src="js/suno.js?v=1.33"></script>
+<script src="js/control.js?v=1.33"></script>
+<script src="js/sistema.js?v=1.33"></script>
+<script src="js/reportes.js?v=1.33"></script>
+<script src="js/asistente.js?v=1.33"></script>
 </body>
 </html>
