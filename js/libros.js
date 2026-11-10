@@ -65,7 +65,7 @@
   function filaCapitulo(doc, c, x) {
     var us = usos(doc.id, c.n), et = etiquetaEps(us), g = x.pref + 'c.' + doc.id + '.' + c.n;
     var usa = x.act && us.some(function (u) { return u.ep === x.act; });
-    return '<details class="sub n3" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, !!usa) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Capítulo ' + c.n + (c.titulo ? '. ' + c.titulo : '')) +
+    return '<details class="sub n3" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, false) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Capítulo ' + c.n + (c.titulo ? '. ' + c.titulo : '')) +
       '</span><span class="d' + claseUso(us, x.act) + '">' + esc((et ? et + ' · ' : '') + miles(c.palabras) + ' pal.') + '</span></summary>' + cuerpoCapitulo(doc, c, x.act) + '</details>';
   }
   function pintarParte(det) {
@@ -82,7 +82,7 @@
   function filaParte(libro, p, x) {
     var id = libro.id + '-l' + p.n, us = usos(id), et = etiquetaEps(us), g = x.pref + 'p.' + id;
     var usa = x.act && us.some(function (u) { return u.ep === x.act; });
-    return '<details class="sub n2" data-g="' + g + '"' + atrX(x) + ' data-parte="' + id + '"' + (U.get(x.sec, 'g.' + g, !!usa) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Libro ' + romano(p.n)) +
+    return '<details class="sub n2" data-g="' + g + '"' + atrX(x) + ' data-parte="' + id + '"' + (U.get(x.sec, 'g.' + g, false) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Parte ' + romano(p.n)) +
       '</span><span class="d' + claseUso(us, x.act) + '">' + esc((et ? et + ' · ' : '') + p.capitulos + ' cap. · ' + miles(p.palabras) + ' pal.') + '</span></summary><div class="lector"></div></details>';
   }
   function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
@@ -90,9 +90,9 @@
   function filaObra(o, x) {
     x = x || { sec: S, act: 0, pref: '' };
     var l = libroDe(o);
-    if (!l) return U.fila(o.nombre, o.estMin + '–' + o.estMax + ' ep.', '');
+    if (!l) return U.fila(o.nombre, o.estMin + '–' + o.estMax + ' ep.', '', 'libro');
     var pal = l.partes.reduce(function (a, p) { return a + p.palabras; }, 0), usados = l.partes.filter(function (p) { return usos(l.id + '-l' + p.n).length; }).length, g = x.pref + 'obra.' + o.id;
-    return '<details class="sub n1" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, true) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(o.nombre) + '</span><span class="d ac">' + esc(usados + ' de ' + l.partes.length + ' libros en episodios') + '</span></summary>' +
+    return '<details class="sub n1" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, true) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(o.nombre) + '</span><span class="d ac">' + esc(usados + ' de ' + l.partes.length + ' partes en episodios') + '</span></summary>' +
       '<p class="mut peq nota">' + esc(l.autor + ' · ' + miles(pal) + ' palabras. ' + (l.nota || '')) + '</p>' + l.partes.map(function (p) { return filaParte(l, p, x); }).join('') + '</details>';
   }
 
@@ -182,7 +182,7 @@
     var conceptos = (D().conceptos || []).slice().sort(function (a, b) { return (a.nombre || '').localeCompare(b.nombre || '', 'es'); });
     var nombreObra = function (id) { var o = (D().obras || []).filter(function (x) { return x.id === id; })[0]; return o ? o.nombre : ''; };
     var h = '<div class="fil-r" id="imp"></div>';
-    h += U.grupo(S, 'obras', 'Obras', obras.length, obras.map(function (o) { return filaObra(o); }).join(''), true);
+    h += U.grupo(S, 'obras', 'Libros', obras.length, obras.map(function (o) { return filaObra(o); }).join(''), true);
     h += U.grupo(S, 'conceptos', 'Conceptos', conceptos.length, conceptos.map(function (c) { return U.fila(c.nombre, (c.obras || []).map(nombreObra).join(', '), ''); }).join(''), false);
     host.innerHTML = h; pintarImportar();
     host.querySelectorAll('details[data-parte][open]').forEach(pintarParte);
@@ -196,8 +196,8 @@
     if (!el) return;
     var fs = e.fuentes || [], cif = fs.length ? clasificar(e).linea.split(' · ')[0] : 'Sin marcar';
     var o = (D().obras || []).filter(function (x) { return x.id === e.obraId; })[0], x = { sec: 'episodio', act: numEp(e), pref: 'o.' + e.id + '.' };
-    var cuerpo = (o && libroDe(o)) ? '<p class="mut peq nota">' + esc(fs.length ? clasificar(e).linea : 'Aún no hay tramo del libro marcado para este episodio') + '. En amarillo, este episodio; en azul, los demás.</p>' + filaObra(o, x) : '<p class="mut peq nota">Este episodio aún no tiene un libro subido en Biblioteca.</p>';
-    el.innerHTML = U.grupo('episodio', 'origen', 'Texto de origen', cif, cuerpo, true);
+    var cuerpo = (o && libroDe(o)) ? '<p class="mut peq nota">' + esc(fs.length ? clasificar(e).linea : 'Aún no hay tramo del libro marcado para este episodio') + '. En amarillo, lo que lee este episodio; en azul, lo que leen los demás.</p>' + filaObra(o, x) : '<p class="mut peq nota">Este episodio aún no tiene un libro subido en Biblioteca.</p>';
+    el.innerHTML = U.grupo('episodio', 'origen', 'Texto de origen', cif, cuerpo, false);
     el.querySelectorAll('details[data-parte][open]').forEach(pintarParte);
   }
 
@@ -208,15 +208,16 @@
     var id = String(fs[0].texto).split('-l')[0], lib = (D().libros || []).filter(function (x) { return x.id === id; })[0];
     var caps = fs.map(function (f) { return f.cap; }), mn = Math.min.apply(null, caps), mx = Math.max.apply(null, caps);
     var partes = {}; fs.forEach(function (f) { partes[f.texto] = 1; });
-    var ps = Object.keys(partes).map(function (k) { return 'Libro ' + romano(+k.split('-l')[1]); }).join(' y ');
+    var ps = Object.keys(partes).map(function (k) { return 'Parte ' + romano(+k.split('-l')[1]); }).join(' y ');
     var linea = ps + ', ' + (mn === mx ? 'cap. ' + mn : 'caps. ' + mn + ' a ' + mx);
     if (lib) {
       var tot = lib.partes.reduce(function (a, p) { return a + p.palabras; }, 0), pal = 0;
       Object.keys(partes).forEach(function (k) {
         var n = +k.split('-l')[1], pt = lib.partes.filter(function (x) { return x.n === n; })[0], cs = fs.filter(function (f) { return f.texto === k; }).map(function (f) { return f.cap; });
         if (!pt) return;
-        if (pt.caps) { for (var c = Math.min.apply(null, cs); c <= Math.max.apply(null, cs); c++) pal += pt.caps[c - 1] || 0; }
-        else pal += fs.filter(function (f) { return f.texto === k; }).reduce(function (a, f) { return a + (f.fin - f.ini); }, 0) / 6;
+        fs.filter(function (f) { return f.texto === k; }).forEach(function (f) {
+          pal += f.fin >= 99999 && pt.caps ? (pt.caps[f.cap - 1] || 0) : (f.fin - f.ini) / 5.4;
+        });
       });
       if (tot) linea += ' · ' + (Math.round(pal / tot * 1000) / 10).toString().replace('.', ',') + ' % del libro';
     }
