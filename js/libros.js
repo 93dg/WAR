@@ -190,18 +190,18 @@
     if (!el) return;
     var fs = e.fuentes || [], ids = [];
     fs.forEach(function (f) { if (ids.indexOf(f.texto) < 0) ids.push(f.texto); });
-    var cif = fs.length ? fs.length + ' pasajes' : 'Sin marcar';
-    if (!fs.length) { el.innerHTML = U.grupo('episodio', 'origen', 'Texto de origen', cif, '<p class="mut peq nota">Aún no hay pasajes del libro marcados para este episodio.</p>', false); return; }
+    var lin = fs.length ? clasificar(e).linea : '', cif = fs.length ? lin.split(' · ')[0] : 'Sin marcar';
+    if (!fs.length) { el.innerHTML = U.grupo('episodio', 'origen', 'Texto de origen', cif, '<p class="mut peq nota">Aún no hay tramo del libro marcado para este episodio.</p>', true); return; }
     el.innerHTML = U.grupo('episodio', 'origen', 'Texto de origen', cif, '<div class="lector">Cargando…</div>', true);
     Promise.all(ids.map(texto)).then(function (docs) {
-      var h = fs.map(function (f) { return U.fila(f.idea || 'Pasaje', 'Cap. ' + f.cap, ''); }).join('');
-      var vistos = {};
-      fs.forEach(function (f) {
-        var k = f.texto + '.' + f.cap; if (vistos[k]) return; vistos[k] = 1;
-        var d = docs[ids.indexOf(f.texto)], c = d && d.capitulos.filter(function (x) { return x.n === f.cap; })[0];
-        if (!c) return; d.id = f.texto;
-        var g = 'o.' + e.id + '.' + k;
-        h += '<details class="sub" data-ui="episodio" data-g="' + g + '"' + (U.get('episodio', 'g.' + g, false) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(d.titulo + ', capítulo ' + c.n) + '</span><span class="d ac">' + esc(miles(c.palabras) + ' pal.') + '</span></summary>' + cuerpoCapitulo(d, c, numEp(e)) + '</details>';
+      var h = '<p class="mut peq nota">' + esc(lin) + '. En amarillo, lo que usa este episodio.</p>';
+      ids.forEach(function (id, k) {
+        var d = docs[k]; if (!d) return; d.id = id;
+        var cs = fs.filter(function (f) { return f.texto === id; }).map(function (f) { return f.cap; }), mn = Math.min.apply(null, cs), mx = Math.max.apply(null, cs);
+        h += '<p class="mut peq nota">' + esc(d.titulo) + '</p>';
+        d.capitulos.filter(function (c) { return c.n >= mn && c.n <= mx; }).forEach(function (c) {
+          h += '<h4 class="capt">' + esc('Capítulo ' + c.n + (c.titulo ? '. ' + c.titulo : '')) + '</h4>' + cuerpoCapitulo(d, c, numEp(e));
+        });
       });
       var l = el.querySelector('.lector'); if (l) l.innerHTML = h;
     });

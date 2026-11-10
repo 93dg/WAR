@@ -96,13 +96,15 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:6px;justif
 #mas{position:fixed;top:0;right:0;bottom:0;z-index:8;width:min(70vw,16rem);padding:calc(18px + env(safe-area-inset-top)) 14px 18px;background:var(--bg);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
 #mas[hidden],#mas-fondo[hidden]{display:none}
 #mas button{text-align:left;padding:12px 10px}
+#act{position:fixed;left:14px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:40;width:48px;height:48px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--tx);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.capt{margin:14px 14px 4px;font-size:.85rem;font-weight:600;color:var(--mut)}
 nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-color:transparent;color:var(--mut)}
 [hidden]{display:none !important}
 @media (min-width:700px){main{padding-top:32px}}
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.26</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.27</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -121,6 +123,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
     <button id="salir" type="button" hidden>Salir</button>
   </section>
 </main>
+<button type="button" id="act" aria-label="Actualizar" title="Actualizar" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
 <nav id="menu" hidden></nav>
 <div id="mas-fondo" hidden></div><aside id="mas" hidden aria-label="Más"></aside>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -144,9 +147,10 @@ function duracion(txt,cfg){
 window.WAR={sb:sb,esc:esc,duracion:duracion,datos:function(){return D},ir:function(v){vista=v;sel=null;pintar()},pintar:function(){pintar()}};
 
 function mostrarAcceso(msg){$('acceso').hidden=false;$('app').hidden=true;$('menu').hidden=true;$('aviso').textContent=msg||''}
-function mostrarApp(){$('acceso').hidden=true;$('app').hidden=false;$('menu').hidden=false}
+function mostrarApp(){$('acceso').hidden=true;$('app').hidden=false;$('menu').hidden=false;$('act').hidden=false}
 
 async function cargar(){
+  try{var g=JSON.parse(sessionStorage.getItem('war-vista')||'null');if(g){vista=g.v||vista;sel=g.s||null;sessionStorage.removeItem('war-vista')}}catch(e){}
   var r=await sb.from('war_docs').select('coleccion,id,datos').neq('coleccion','textos');
   if(r.error){mostrarAcceso('No se pudieron leer los datos: '+r.error.message);return}
   D={};r.data.forEach(function(x){(D[x.coleccion]=D[x.coleccion]||[]).push(Object.assign({id:x.id},x.datos))});
@@ -206,6 +210,7 @@ document.addEventListener('click',function(ev){
   else if(t.dataset.ep){sel=t.dataset.ep;pintar()}
   else if(t.dataset.volver){sel=null;pintar()}
 });
+$('act').addEventListener('click',function(){try{sessionStorage.setItem('war-vista',JSON.stringify({v:vista,s:sel}))}catch(e){}location.reload()});
 $('mas-fondo').addEventListener('click',function(){$('mas').hidden=true;$('mas-fondo').hidden=true});
 $('salir').addEventListener('click',async function(){await sb.auth.signOut();D={};mostrarAcceso('')});
 $('form').addEventListener('submit',async function(ev){
@@ -222,16 +227,16 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 })();
 </script>
-<script src="js/voces.js?v=1.26"></script>
-<script src="js/muestras.js?v=1.26"></script>
-<script src="js/ui.js?v=1.26"></script>
-<script src="js/libros_nucleo.js?v=1.26"></script>
-<script src="js/libros.js?v=1.26"></script>
-<script src="js/prompts.js?v=1.26"></script>
-<script src="js/suno.js?v=1.26"></script>
-<script src="js/control.js?v=1.26"></script>
-<script src="js/sistema.js?v=1.26"></script>
-<script src="js/reportes.js?v=1.26"></script>
-<script src="js/asistente.js?v=1.26"></script>
+<script src="js/voces.js?v=1.27"></script>
+<script src="js/muestras.js?v=1.27"></script>
+<script src="js/ui.js?v=1.27"></script>
+<script src="js/libros_nucleo.js?v=1.27"></script>
+<script src="js/libros.js?v=1.27"></script>
+<script src="js/prompts.js?v=1.27"></script>
+<script src="js/suno.js?v=1.27"></script>
+<script src="js/control.js?v=1.27"></script>
+<script src="js/sistema.js?v=1.27"></script>
+<script src="js/reportes.js?v=1.27"></script>
+<script src="js/asistente.js?v=1.27"></script>
 </body>
 </html>
