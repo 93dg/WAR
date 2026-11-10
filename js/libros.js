@@ -82,11 +82,14 @@
     return '<details class="sub" data-ui="' + S + '" data-g="' + g + '" data-parte="' + id + '"' + (abierto ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(p.titulo) +
       '</span><span class="d' + (et ? ' ac' : '') + '">' + esc((et ? et + ' · ' : '') + p.capitulos + ' cap. · ' + miles(p.palabras) + ' pal.') + '</span></summary><div class="lector"></div></details>';
   }
-  function bloqueLibro(l) {
-    var pal = l.partes.reduce(function (a, p) { return a + p.palabras; }, 0);
-    var usados = l.partes.filter(function (p) { return usos(l.id + '-l' + p.n).length; }).length;
-    var cuerpo = l.partes.map(function (p) { return filaParte(l, p); }).join('');
-    return U.grupo(S, 'libro.' + l.id, l.titulo, usados + ' de ' + l.partes.length + ' en episodios', '<p class="mut peq nota">' + esc(l.autor + ' · ' + miles(pal) + ' palabras. ' + (l.nota || '')) + '</p>' + cuerpo, true);
+  function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+  function libroDe(o) { return (D().libros || []).filter(function (l) { return l.obraId === o.id || norm(l.titulo) === norm(o.nombre); })[0]; }
+  function filaObra(o) {
+    var l = libroDe(o);
+    if (!l) return U.fila(o.nombre, o.estMin + '–' + o.estMax + ' ep.', '');
+    var pal = l.partes.reduce(function (a, p) { return a + p.palabras; }, 0), usados = l.partes.filter(function (p) { return usos(l.id + '-l' + p.n).length; }).length, g = 'obra.' + o.id;
+    return '<details class="sub" data-ui="' + S + '" data-g="' + g + '"' + (U.get(S, 'g.' + g, true) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(o.nombre) + '</span><span class="d ac">' + esc(usados + ' de ' + l.partes.length + ' libros en episodios') + '</span></summary>' +
+      '<p class="mut peq nota">' + esc(l.autor + ' · ' + miles(pal) + ' palabras. ' + (l.nota || '')) + '</p>' + l.partes.map(function (p) { return filaParte(l, p); }).join('') + '</details>';
   }
 
   /* Importación del PDF en el navegador: el texto no sale de la cuenta del usuario. */
@@ -155,15 +158,15 @@
 
   function pintarImportar() {
     var c = document.getElementById('imp'); if (!c) return;
-    var h = '<label class="btn" for="imp-file" style="margin:8px 14px">Elegir PDF</label><input id="imp-file" type="file" accept="application/pdf" hidden>';
-    if (estado) h += '<p class="mut peq" style="margin:0 14px 8px">' + esc(estado) + '</p>';
-    if (pend) h += U.fila(pend.res.partes.length + ' libros · ' + pend.res.partes.reduce(function (a, p) { return a + p.capitulos.length; }, 0) + ' capítulos', miles(pend.res.partes.reduce(function (a, p) { return a + p.palabras; }, 0)) + ' pal.', '');
-    c.innerHTML = h;
+    var pal = pend ? pend.res.partes.reduce(function (a, p) { return a + p.palabras; }, 0) : 0;
+    var txt = pend ? pend.res.partes.length + ' libros · ' + miles(pal) + ' pal.' + (estado ? ' · ' + estado : '') : estado;
+    c.innerHTML = '<span class="t mut peq">' + esc(txt) + '</span>' + U.accion('Importar libro', 'data-lib-imp="1"') + '<input id="imp-file" type="file" accept="application/pdf" hidden>';
   }
 
   function biblioteca(el) {
     host = el; pintar();
     el.onclick = function (ev) {
+      var b = ev.target.closest('button[data-lib-imp]'); if (b) { var f = document.getElementById('imp-file'); if (f) f.click(); }
     };
     el.onchange = function (ev) {
       if (ev.target.id === 'imp-file' && ev.target.files[0]) importar(ev.target.files[0]);
@@ -174,9 +177,8 @@
     var libros = D().libros || [], obras = (D().obras || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     var conceptos = (D().conceptos || []).slice().sort(function (a, b) { return (a.nombre || '').localeCompare(b.nombre || '', 'es'); });
     var nombreObra = function (id) { var o = (D().obras || []).filter(function (x) { return x.id === id; })[0]; return o ? o.nombre : ''; };
-    var h = libros.map(bloqueLibro).join('');
-    h += U.grupo(S, 'importar', 'Importar libro', libros.length ? '' : 'Sin libros', '<div id="imp"></div>', !libros.length);
-    h += U.grupo(S, 'obras', 'Obras', obras.length, obras.map(function (o) { return U.fila(o.nombre, o.estMin + '–' + o.estMax + ' ep.', ''); }).join(''), false);
+    var h = '<div class="fil-r" id="imp"></div>';
+    h += U.grupo(S, 'obras', 'Obras', obras.length, obras.map(filaObra).join(''), true);
     h += U.grupo(S, 'conceptos', 'Conceptos', conceptos.length, conceptos.map(function (c) { return U.fila(c.nombre, (c.obras || []).map(nombreObra).join(', '), ''); }).join(''), false);
     host.innerHTML = h; pintarImportar();
     host.querySelectorAll('details[data-parte][open]').forEach(pintarParte);

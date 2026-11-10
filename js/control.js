@@ -4,17 +4,15 @@
   var W = window.WAR, U = window.WARUI;
   var ETAPAS = ['Idea', 'Estructura', 'Borrador', 'Revisión', 'Guion aprobado', 'Narración', 'Edición', 'Publicado'];
   var CATS = ['Libros', 'Guiones', 'Voz', 'Producción', 'Web', 'Otros'];
-  var DESTINO = { Libros: 'biblioteca', Guiones: 'episodios', Voz: 'muestras', 'Producción': 'episodios' };
-  var META_MIN = 10, S = 'control';
+  var DESTINO = { Libros: 'biblioteca', Guiones: 'episodios', 'Producción': 'episodios' };
+  var S = 'control';
 
-  function dec(n) { return (Math.round(n * 10) / 10).toString().replace('.', ','); }
   function pad(n) { return ('0' + n).slice(-2); }
   function hoy() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   function dias(iso) { return Math.round((new Date(iso + 'T12:00:00') - new Date(hoy() + 'T12:00:00')) / 86400000); }
   function fmt(iso) { var p = iso.split('-'); return pad(+p[2]) + '/' + pad(+p[1]); }
 
   function tareasPendientes() { return (W.datos().tareas || []).filter(function (t) { return t.estado !== 'hecha'; }); }
-  function minutosVoz() { return (W.datos().muestras || []).reduce(function (t, m) { return t + (m.dur || 0); }, 0) / 60; }
 
   /* Avisos calculados a partir de los datos: no se guardan, así nunca se duplican ni se quedan viejos. */
   function avisos() {
@@ -25,8 +23,6 @@
       if (/BORRADOR PRELIMINAR/.test(e.notasFilos || '')) a.push({ cat: 'Guiones', txt: 'Contrastar referencias del ' + n });
       if (e.status === 'Guion aprobado') a.push({ cat: 'Producción', txt: 'Narrar el ' + n });
     });
-    var mins = minutosVoz();
-    if (mins < META_MIN) a.push({ cat: 'Voz', txt: 'Reunir muestras: ' + dec(mins) + ' de ' + META_MIN + ' min' });
     if (!(D.libros || []).length) a.push({ cat: 'Libros', txt: 'Cargar el texto de los libros' });
     else (D.episodios || []).slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); }).forEach(function (e, i) { if (e.script && !(e.fuentes || []).length) a.push({ cat: 'Libros', txt: 'Marcar el texto de origen del episodio ' + (i + 1) }); });
     return a;
