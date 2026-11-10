@@ -65,7 +65,7 @@
   function filaCapitulo(doc, c, x) {
     var us = usos(doc.id, c.n), et = etiquetaEps(us), g = x.pref + 'c.' + doc.id + '.' + c.n;
     var usa = x.act && us.some(function (u) { return u.ep === x.act; });
-    return '<details class="sub" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, !!usa) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Capítulo ' + c.n + (c.titulo ? '. ' + c.titulo : '')) +
+    return '<details class="sub n3" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, !!usa) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Capítulo ' + c.n + (c.titulo ? '. ' + c.titulo : '')) +
       '</span><span class="d' + claseUso(us, x.act) + '">' + esc((et ? et + ' · ' : '') + miles(c.palabras) + ' pal.') + '</span></summary>' + cuerpoCapitulo(doc, c, x.act) + '</details>';
   }
   function pintarParte(det) {
@@ -82,7 +82,7 @@
   function filaParte(libro, p, x) {
     var id = libro.id + '-l' + p.n, us = usos(id), et = etiquetaEps(us), g = x.pref + 'p.' + id;
     var usa = x.act && us.some(function (u) { return u.ep === x.act; });
-    return '<details class="sub" data-g="' + g + '"' + atrX(x) + ' data-parte="' + id + '"' + (U.get(x.sec, 'g.' + g, !!usa) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(p.titulo) +
+    return '<details class="sub n2" data-g="' + g + '"' + atrX(x) + ' data-parte="' + id + '"' + (U.get(x.sec, 'g.' + g, !!usa) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc('Libro ' + romano(p.n)) +
       '</span><span class="d' + claseUso(us, x.act) + '">' + esc((et ? et + ' · ' : '') + p.capitulos + ' cap. · ' + miles(p.palabras) + ' pal.') + '</span></summary><div class="lector"></div></details>';
   }
   function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
@@ -92,7 +92,7 @@
     var l = libroDe(o);
     if (!l) return U.fila(o.nombre, o.estMin + '–' + o.estMax + ' ep.', '');
     var pal = l.partes.reduce(function (a, p) { return a + p.palabras; }, 0), usados = l.partes.filter(function (p) { return usos(l.id + '-l' + p.n).length; }).length, g = x.pref + 'obra.' + o.id;
-    return '<details class="sub" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, true) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(o.nombre) + '</span><span class="d ac">' + esc(usados + ' de ' + l.partes.length + ' libros en episodios') + '</span></summary>' +
+    return '<details class="sub n1" data-g="' + g + '"' + atrX(x) + (U.get(x.sec, 'g.' + g, true) ? ' open' : '') + '><summary class="fil-r"><span class="t">' + esc(o.nombre) + '</span><span class="d ac">' + esc(usados + ' de ' + l.partes.length + ' libros en episodios') + '</span></summary>' +
       '<p class="mut peq nota">' + esc(l.autor + ' · ' + miles(pal) + ' palabras. ' + (l.nota || '')) + '</p>' + l.partes.map(function (p) { return filaParte(l, p, x); }).join('') + '</details>';
   }
 
