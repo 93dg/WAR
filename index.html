@@ -106,10 +106,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:6px;justif
 nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-color:transparent;color:var(--mut)}
 [hidden]{display:none !important}
 @media (min-width:700px){main{padding-top:32px}}
+
+html,body{overscroll-behavior:none}html.sa{min-height:calc(100% + env(safe-area-inset-top))}
 </style>
 </head>
 <body>
-<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.33</span></header>
+<header><h1>Aristóteles <span>·</span> filosofía para las noches</h1><span id="version">V1.34</span></header>
 <main>
   <section id="acceso" hidden>
     <h2>Acceso</h2>
@@ -131,6 +133,7 @@ nav button{flex:1 1 0;max-width:9.5rem;padding:10px 2px;font-size:.8rem;border-c
 <button type="button" id="act" aria-label="Actualizar" title="Actualizar" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
 <nav id="menu" hidden></nav>
 <div id="mas-fondo" hidden></div><aside id="mas" hidden aria-label="Más"></aside>
+<script>if(navigator.standalone)document.documentElement.classList.add('sa');</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
